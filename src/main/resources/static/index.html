@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudDash - AWS Billing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .sidebar { transition: all 0.3s ease; }
+        .sidebar.collapsed { width: 70px; }
+        .sidebar.collapsed .sidebar-text,
+        .sidebar.collapsed .logo-text { display: none; }
+        .sidebar:not(.collapsed) .tooltip { display: none; }
+        .sidebar.collapsed .tooltip {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1E293B;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+            margin-left: 10px;
+            z-index: 50;
+        }
+        .sidebar.collapsed a:hover .tooltip { display: block; }
+        .billing-row { transition: all 0.3s ease; }
+        .billing-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .billing-row.expanded .billing-details { max-height: 1000px; /* Increased for more content */ }
+        .billing-row.expanded .chevron-icon { transform: rotate(90deg); }
+        .chevron-icon { transition: transform 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="flex h-screen overflow-hidden">
+        <div id="sidebar" class="sidebar bg-gray-800 text-white w-64 flex-shrink-0 flex flex-col">
+            <div class="p-4 flex items-center border-b border-gray-700 h-16">
+                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <i class="fas fa-cube"></i>
+                </div>
+                <span class="logo-text ml-3 text-xl font-bold">CloudDash</span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto py-4">
+                <nav>
+                    <a href="#" class="block px-4 py-3 text-white bg-gray-700 border-l-4 border-blue-500">
+                        <div class="flex items-center relative"> <i class="fas fa-file-invoice w-6 text-center"></i> <span class="sidebar-text ml-3">Billing</span> <span class="tooltip">Billing</span> </div>
+                    </a>
+                    <a href="#" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                        <div class="flex items-center relative"> <i class="fas fa-server w-6 text-center"></i> <span class="sidebar-text ml-3">Compute</span> <span class="tooltip">Compute</span> </div>
+                    </a>
+                    <a href="#" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                        <div class="flex items-center relative"> <i class="fas fa-database w-6 text-center"></i> <span class="sidebar-text ml-3">Database</span> <span class="tooltip">Database</span> </div>
+                    </a>
+                </nav>
+            </div>
+            
+            <div class="p-4 border-t border-gray-700">
+                <button id="toggleSidebar" class="w-full text-gray-300 hover:text-white flex items-center">
+                    <i class="fas fa-chevron-left"></i>
+                    <span class="sidebar-text ml-3">Collapse</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex-1 overflow-auto">
+            <header class="bg-white shadow-sm sticky top-0 z-10">
+                <div class="px-6 py-4 flex items-center justify-between h-16">
+                    <h1 class="text-2xl font-semibold text-gray-800">Billing Dashboard</h1>
+                    <div class="flex items-center">
+                         <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold">JD</div>
+                         <span class="ml-2 text-gray-700">John Doe</span>
+                    </div>
+                </div>
+            </header>
+            
+            <main class="p-6">
+                <div id="loadingIndicator" class="text-center py-12">
+                     <p class="mt-4 text-gray-700 font-semibold text-lg">Loading Cost Data...</p>
+                </div>
+                <div id="errorMessage" class="hidden bg-red-100 p-4 rounded-md"></div>
+
+                <div id="dashboardContent" class="hidden">
+                     <div class="mb-6">
+                        <h2 class="text-xl font-semibold text-gray-800">Account Billing Summary</h2>
+                        <p class="text-gray-600" id="dashboardSubtitle">View and manage your cloud service costs</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div class="bg-white rounded-lg shadow p-6" id="totalCostCard">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-gray-500 text-sm">Total Cost</p>
+                                    <h3 class="text-2xl font-bold mt-1">$0.00</h3>
+                                </div>
+                                <div class="bg-blue-100 text-blue-800 p-2 rounded-lg"><i class="fas fa-dollar-sign"></i></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow p-6" id="topServiceCard">
+                             <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-gray-500 text-sm">Top Service</p>
+                                    <h3 class="text-2xl font-bold mt-1 truncate">N/A</h3>
+                                </div>
+                                <div class="bg-green-100 text-green-800 p-2 rounded-lg"><i class="fas fa-server"></i></div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow p-6" id="activeAccountsCard">
+                             <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-gray-500 text-sm">Active Accounts</p>
+                                    <h3 class="text-2xl font-bold mt-1">0</h3>
+                                </div>
+                                <div class="bg-purple-100 text-purple-800 p-2 rounded-lg"><i class="fas fa-users"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h3 class="font-semibold text-gray-800">Account Billing Details</h3>
+                        </div>
+                        <div id="billingTableContainer" class="divide-y divide-gray-200">
+                            </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // --- UI Interactivity ---
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebarBtn = document.getElementById('toggleSidebar');
+
+        toggleSidebarBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            const icon = toggleSidebarBtn.querySelector('i');
+            const text = toggleSidebarBtn.querySelector('.sidebar-text');
+            if (sidebar.classList.contains('collapsed')) {
+                icon.classList.remove('fa-chevron-left');
+                icon.classList.add('fa-chevron-right');
+                text.textContent = 'Expand';
+            } else {
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-left');
+                text.textContent = 'Collapse';
+            }
+        });
+
+        function toggleBillingRow(rowElement) {
+            rowElement.classList.toggle('expanded');
+        }
+
+        // --- Data Fetching and Rendering ---
+        const API_URL = '/api/costs'; // Relative URL for the unified app
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const errorMessageDiv = document.getElementById('errorMessage');
+        const dashboardContent = document.getElementById('dashboardContent');
+        const billingTableContainer = document.getElementById('billingTableContainer');
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+        }
+        
+        function findTopService(accounts) {
+            if (!accounts || accounts.length === 0) return { name: 'N/A', cost: 0 };
+            const serviceTotals = new Map();
+            accounts.forEach(account => {
+                account.services.forEach(service => {
+                    if (service.cost > 0) { // Only consider positive costs for top service
+                         const currentTotal = serviceTotals.get(service.name) || 0;
+                         serviceTotals.set(service.name, currentTotal + service.cost);
+                    }
+                });
+            });
+            if (serviceTotals.size === 0) return { name: 'N/A', cost: 0 };
+
+            let topService = { name: 'N/A', cost: -1 };
+            for (const [name, cost] of serviceTotals.entries()) {
+                if (cost > topService.cost) {
+                    topService = { name, cost };
+                }
+            }
+            return topService;
+        }
+
+        function renderDashboard(data) {
+            const { grandTotal, accounts, query } = data;
+
+            // 1. Populate Summary Cards
+            document.querySelector('#totalCostCard h3').textContent = formatCurrency(grandTotal);
+            document.querySelector('#activeAccountsCard h3').textContent = accounts.length;
+            const topService = findTopService(accounts);
+            document.querySelector('#topServiceCard h3').textContent = topService.name;
+            document.querySelector('#topServiceCard h3').title = topService.name;
+            
+            // 2. Populate Subtitle
+             document.getElementById('dashboardSubtitle').textContent = `Showing costs for the period: ${query.start} to ${query.end}`;
+
+            // 3. Populate Billing Table
+            billingTableContainer.innerHTML = ''; // Clear static/old data
+            if (accounts.length > 0) {
+                accounts.forEach(account => {
+                    const servicesHtml = account.services.map(service => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-3 text-sm text-gray-700">${service.name}</td>
+                            <td class="px-6 py-3 text-sm text-gray-600 text-right">${formatCurrency(service.cost)}</td>
+                        </tr>
+                    `).join('');
+
+                    const rowElement = document.createElement('div');
+                    rowElement.className = 'billing-row';
+                    rowElement.innerHTML = `
+                        <div class="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50" onclick="toggleBillingRow(this.parentElement)">
+                            <div class="flex items-center flex-1 min-w-0">
+                                <div class="w-10 h-10 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                                    <i class="fas fa-building"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-medium text-gray-800 truncate">${account.name}</div>
+                                    <div class="text-sm text-gray-500">ID: ${account.id}</div>
+                                </div>
+                            </div>
+                            <div class="text-right mx-4">
+                                <div class="font-semibold text-lg text-gray-800">${formatCurrency(account.totalCost)}</div>
+                                <div class="text-sm text-gray-500">${account.services.length} services</div>
+                            </div>
+                            <div class="text-gray-400 chevron-icon">
+                                <i class="fas fa-chevron-right"></i>
+                            </div>
+                        </div>
+                        <div class="billing-details bg-gray-50/50">
+                            <div class="px-6 py-4">
+                                <h4 class="font-semibold text-gray-700 mb-2">Service Breakdown</h4>
+                                <div class="overflow-x-auto border rounded-lg">
+                                    <table class="min-w-full">
+                                        <thead class="bg-gray-100">
+                                            <tr>
+                                                <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                                                <th class="px-6 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">${servicesHtml}</tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    billingTableContainer.appendChild(rowElement);
+                });
+            } else {
+                 billingTableContainer.innerHTML = `<div class="p-6 text-center text-gray-500">No billing data found for the selected period.</div>`;
+            }
+        }
+
+        async function loadDashboardData() {
+            loadingIndicator.style.display = 'block';
+            errorMessageDiv.classList.add('hidden');
+            dashboardContent.classList.add('hidden');
+            
+            try {
+                // We are fetching the default range (Last Month) from the API
+                const response = await fetch(API_URL);
+                if (!response.ok) { throw new Error(`API Error: ${response.status} ${response.statusText}`); }
+                const data = await response.json();
+                if (data.error) { throw new Error(`API returned an error: ${data.message}`); }
+                renderDashboard(data);
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+                errorMessageDiv.innerHTML = `<p class="font-bold">Could not load dashboard data.</p><p class="text-sm">${error.message}</p>`;
+                errorMessageDiv.classList.remove('hidden');
+            } finally {
+                loadingIndicator.style.display = 'none';
+                dashboardContent.classList.remove('hidden');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadDashboardData);
+    </script>
+</body>
+</html>
