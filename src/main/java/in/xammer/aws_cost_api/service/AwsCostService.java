@@ -1,23 +1,18 @@
 package in.xammer.aws_cost_api.service;
+
 import in.xammer.aws_cost_api.dto.AccountCost;
 import in.xammer.aws_cost_api.dto.CostResponse;
 import in.xammer.aws_cost_api.dto.ServiceCost;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.costexplorer.CostExplorerClient;
-import software.amazon.awssdk.services.costexplorer.model.GetCostAndUsageRequest;
-import software.amazon.awssdk.services.costexplorer.model.GetCostAndUsageResponse;
-import software.amazon.awssdk.services.costexplorer.model.Group;
+import software.amazon.awssdk.services.costexplorer.model.*; // Import all from model
 import software.amazon.awssdk.services.organizations.OrganizationsClient;
-import software.amazon.awssdk.services.organizations.model.Account;
+import software.amazon.awssdk.services.organizations.model.Account; // Ensure this is the correct Account import
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,49 +28,78 @@ public class AwsCostService {
 
     @Cacheable(value = "awsCosts", key = "{#startDate, #endDate, #granularity}")
     public CostResponse getCostAndUsage(String startDate, String endDate, String granularity) {
-        System.out.printf("Cache miss. Fetching from AWS for %s to %s%n", startDate, endDate);
+        System.out.printf("Cache miss. Fetching from AWS for %s to %s with %s granularity%n", startDate, endDate, granularity);
 
-        // 1. Fetch Account Names
-        Map<String, String> accountMap = organizationsClient.listAccounts().accounts()
-            .stream()
-            .collect(Collectors.toMap(Account::id, Account::name));
+        Map<String, String> accountMap = new HashMap<>();
+        try {
+            accountMap = organizationsClient.listAccountsPaginator().stream()
+                    .flatMap(page -> page.accounts().stream())
+                    .collect(Collectors.toMap(software.amazon.awssdk.services.organizations.model.Account::id, software.amazon.awssdk.services.organizations.model.Account::name));
+        } catch (Exception e) {
+            System.err.println("Error fetching account names from Organizations: " + e.getMessage());
+            // Continue without account names if this fails
+        }
 
-        // 2. Fetch Cost Data with Pagination
+
         List<Group> allGroups = new ArrayList<>();
         String nextToken = null;
+        GetCostAndUsageResponse response;
+
         do {
             GetCostAndUsageRequest request = GetCostAndUsageRequest.builder()
                 .timePeriod(tp -> tp.start(startDate).end(endDate))
                 .granularity(granularity)
                 .metrics("UnblendedCost")
-                .groupBy(
-                    List.of(
-                        software.amazon.awssdk.services.costexplorer.model.GroupDefinition.builder()
-                            .type("DIMENSION").key("LINKED_ACCOUNT").build(),
-                        software.amazon.awssdk.services.costexplorer.model.GroupDefinition.builder()
-                            .type("DIMENSION").key("SERVICE").build()
-                    )
-                )
+                .groupBy(gb -> gb.type("DIMENSION").key("LINKED_ACCOUNT"),
+                         gb -> gb.type("DIMENSION").key("SERVICE"))
                 .nextPageToken(nextToken)
                 .build();
 
-            GetCostAndUsageResponse response = costExplorerClient.getCostAndUsage(request);
-            response.resultsByTime().forEach(rbt -> allGroups.addAll(rbt.groups()));
+            try {
+                System.out.println("Requesting Cost Explorer with: " + request.toString());
+                response = costExplorerClient.getCostAndUsage(request);
+            } catch (CostExplorerException ce) {
+                System.err.printf("AWS Cost Explorer SDK Exception for query (%s to %s, %s): %s. AWS Request ID: %s%n",
+                        startDate, endDate, granularity, ce.getMessage(), ce.requestId());
+                throw new RuntimeException("Failed to retrieve data from AWS Cost Explorer: " + ce.getMessage(), ce);
+            } catch (Exception e) {
+                System.err.printf("Generic Exception during Cost Explorer call for query (%s to %s, %s): %s%n",
+                        startDate, endDate, granularity, e.getMessage());
+                throw new RuntimeException("Failed to retrieve data from AWS Cost Explorer due to an unexpected error.", e);
+            }
+            
+            if (response.resultsByTime() != null) {
+                response.resultsByTime().forEach(rbt -> {
+                    if (rbt.groups() != null) {
+                        allGroups.addAll(rbt.groups());
+                    }
+                });
+            }
             nextToken = response.nextPageToken();
         } while (nextToken != null);
 
-        // 3. Process the data
-        Map<String, Map<String, BigDecimal>> costData = new HashMap<>(); // AccountID -> {Service -> Cost}
+        Map<String, Map<String, BigDecimal>> costData = new HashMap<>();
+
         allGroups.forEach(group -> {
+            // Defensive checks for group keys and metrics
+            if (group.keys() == null || group.keys().size() < 2 || group.metrics() == null) {
+                System.out.println("Skipping malformed group: " + group.toString());
+                return;
+            }
+
             String accountId = group.keys().get(0);
             String serviceName = group.keys().get(1);
-            BigDecimal amount = new BigDecimal(group.metrics().get("UnblendedCost").amount());
+            MetricValue unblendedCostMetric = group.metrics().get("UnblendedCost");
 
-            costData.computeIfAbsent(accountId, k -> new HashMap<>())
-                    .merge(serviceName, amount, BigDecimal::add);
+            if (unblendedCostMetric != null && unblendedCostMetric.amount() != null) {
+                BigDecimal amount = new BigDecimal(unblendedCostMetric.amount());
+                costData.computeIfAbsent(accountId, k -> new HashMap<>())
+                        .merge(serviceName, amount, BigDecimal::add);
+            } else {
+                System.out.printf("Warning: UnblendedCost metric missing or null for account %s, service %s in group %s%n", accountId, serviceName, group.toString());
+            }
         });
-
-        // 4. Structure the response
+        
         BigDecimal grandTotal = BigDecimal.ZERO;
         List<AccountCost> accountCosts = new ArrayList<>();
 
@@ -92,7 +116,7 @@ public class AwsCostService {
 
             accountCosts.add(new AccountCost(
                 accountId,
-                accountMap.getOrDefault(accountId, "N/A"),
+                accountMap.getOrDefault(accountId, "Account " + accountId), // Use accountId if name not found
                 accountTotal.setScale(2, RoundingMode.HALF_UP),
                 serviceCosts
             ));
