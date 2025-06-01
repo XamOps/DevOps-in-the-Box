@@ -8,8 +8,6 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.costexplorer.CostExplorerClient;
 import software.amazon.awssdk.services.costexplorer.model.*; // Import all from model
 import software.amazon.awssdk.services.organizations.OrganizationsClient;
-import software.amazon.awssdk.services.organizations.model.Account; // Ensure this is the correct Account import
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
@@ -50,13 +48,13 @@ public class AwsCostService {
                 .timePeriod(tp -> tp.start(startDate).end(endDate))
                 .granularity(granularity)
                 .metrics("UnblendedCost")
-                .groupBy(gb -> gb.type("DIMENSION").key("LINKED_ACCOUNT"),
-                         gb -> gb.type("DIMENSION").key("SERVICE"))
-                .nextPageToken(nextToken)
-                .build();
-
-            try {
-                System.out.println("Requesting Cost Explorer with: " + request.toString());
+    .groupBy(
+        GroupDefinition.builder().type("DIMENSION").key("LINKED_ACCOUNT").build(),
+        GroupDefinition.builder().type("DIMENSION").key("SERVICE").build()
+    )
+    .build();
+try {
+    System.out.println("Requesting Cost Explorer with: " + request.toString());
                 response = costExplorerClient.getCostAndUsage(request);
             } catch (CostExplorerException ce) {
                 System.err.printf("AWS Cost Explorer SDK Exception for query (%s to %s, %s): %s. AWS Request ID: %s%n",

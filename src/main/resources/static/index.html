@@ -57,6 +57,16 @@
         .content-fade-in { animation: fadeIn 0.5s ease-out forwards; opacity: 0; }
         @keyframes fadeIn { to { opacity: 1; } }
         .billing-row-header:hover { background-color: #f9fafb; }
+        .service-table-container { max-height: 350px; overflow-y: auto; overflow-x: auto; border-radius: 0.5rem; border: 1px solid #e5e7eb; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0s 0.3s linear; }
+        .modal-overlay.active { opacity: 1; visibility: visible; transition: opacity 0.3s ease, visibility 0s 0s linear; }
+        .modal-content { background-color: white; padding: 1.5rem 2rem; border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; transform: translateY(-20px) scale(0.95); transition: transform 0.3s ease; }
+        .modal-overlay.active .modal-content { transform: translateY(0) scale(1); }
+        .modal-content ul { list-style-type: none; padding-left: 0; }
+        .modal-content li { margin-bottom: 0.75rem; padding-left: 1.25rem; position: relative; line-height: 1.6; }
+        .modal-content li::before { content: "✨"; position: absolute; left: 0; color: #8b5cf6; }
     </style>
 </head>
 <body>
@@ -88,7 +98,7 @@
         
         <div class="flex-1 flex flex-col overflow-hidden main-content-wrapper">
             <header class="main-header sticky top-0 z-20">
-                <div class="px-6 py-4 flex items-center justify-between h-16">
+                 <div class="px-6 py-4 flex items-center justify-between h-16">
                     <h1 id="mainHeaderText" class="text-2xl font-semibold text-gray-800">Billing Dashboard</h1>
                     <div class="flex items-center">
                          <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">AM</div>
@@ -118,7 +128,7 @@
                 
                 <div class="account-details-scrollable">
                     <div id="loadingSkeleton" class="hidden space-y-4">
-                        <div class="animate-pulse">
+                         <div class="animate-pulse">
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                                 <div class="h-32 bg-gray-300 rounded-lg skeleton-card-bg"></div>
                                 <div class="h-32 bg-gray-300 rounded-lg skeleton-card-bg"></div>
@@ -150,6 +160,19 @@
         </div>
     </div>
 
+    <div id="geminiModalOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold text-gray-800">✨ Cost Optimization Suggestions</h3>
+                <button id="closeGeminiModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="geminiSuggestionsContent" class="text-gray-700 text-sm leading-relaxed">
+                <p>Loading suggestions...</p>
+            </div>
+             <button id="copyGeminiSuggestionsBtn" class="mt-6 px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Copy Suggestions</button>
+        </div>
+    </div>
+
     <script>
         // --- DOM Elements ---
         const sidebar = document.getElementById('sidebar');
@@ -165,10 +188,23 @@
         const errorMessageDiv = document.getElementById('errorMessage');
         const billingTableContainer = document.getElementById('billingTableContainer');
         const dashboardSubtitle = document.getElementById('dashboardSubtitle');
-
         const API_BASE_URL = '/api/costs'; 
+
+        const geminiModalOverlay = document.getElementById('geminiModalOverlay');
+        const geminiSuggestionsContent = document.getElementById('geminiSuggestionsContent');
+        const closeGeminiModalBtn = document.getElementById('closeGeminiModalBtn');
+        const copyGeminiSuggestionsBtn = document.getElementById('copyGeminiSuggestionsBtn');
+        let currentAccountsData = [];
         
         // --- UI Interactivity ---
+        // Modal Helper Functions (defined early)
+        function openGeminiModal() { 
+            if(geminiModalOverlay) geminiModalOverlay.classList.add('active'); 
+        }
+        function closeGeminiModal() { 
+            if(geminiModalOverlay) geminiModalOverlay.classList.remove('active'); 
+        }
+
         toggleSidebarBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
             const icon = toggleSidebarBtn.querySelector('i');
@@ -205,8 +241,6 @@
                 summaryCardsContainer.classList.add('hidden');
                 mainDashboardContent.classList.add('hidden');
             } else {
-                // Visibility of summaryCardsContainer and mainDashboardContent
-                // will be handled by renderDashboard or error display logic
                 loadingSkeleton.classList.add('hidden');
             }
         }
@@ -223,14 +257,18 @@
             comingSoonMessage.classList.remove('hidden');
             updateActiveSidebarLink(linkId);
         }
-
-        document.getElementById('billingLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            showBillingView(true); // Show loading state for billing
-            loadInitialData(); 
+        
+        if(closeGeminiModalBtn) closeGeminiModalBtn.addEventListener('click', closeGeminiModal);
+        if(geminiModalOverlay) geminiModalOverlay.addEventListener('click', (e) => { if (e.target === geminiModalOverlay) closeGeminiModal(); });
+        if(copyGeminiSuggestionsBtn) copyGeminiSuggestionsBtn.addEventListener('click', () => {
+            const textToCopy = geminiSuggestionsContent.innerText || geminiSuggestionsContent.textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                alert('Suggestions copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy suggestions: ', err);
+                alert('Failed to copy suggestions.');
+            });
         });
-        document.getElementById('kubecutLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Kubecut', 'kubecutLink'); });
-        document.getElementById('xampingLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Xamping', 'xampingLink'); });
 
         // --- Data Formatting & Calculation ---
         const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
@@ -258,46 +296,39 @@
 
         // --- Main Rendering Logic ---
         const renderDashboard = (data) => {
-            // Ensure data and its properties exist before trying to use them
             const grandTotal = data?.grandTotal ?? 0;
-            const accounts = Array.isArray(data?.accounts) ? data.accounts : [];
+            currentAccountsData = Array.isArray(data?.accounts) ? data.accounts : [];
             const query = data?.query ?? { start: 'N/A', end: 'N/A', granularity: 'N/A' };
 
-            // Update month picker and subtitle
             if (query.start !== 'N/A') {
-                const queryStartDate = new Date(query.start + 'T00:00:00Z'); // Ensure UTC parsing
+                const queryStartDate = new Date(query.start + 'T00:00:00Z'); 
                 const monthYearString = `${queryStartDate.getUTCFullYear()}-${String(queryStartDate.getUTCMonth() + 1).padStart(2, '0')}`;
-                if (monthPicker.value !== monthYearString) { // Avoid re-setting if already correct
-                     monthPicker.value = monthYearString;
-                }
+                if (monthPicker.value !== monthYearString) { monthPicker.value = monthYearString; }
                 dashboardSubtitle.textContent = `Showing costs for ${queryStartDate.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })} (Granularity: ${query.granularity || 'N/A'})`;
             } else {
                 dashboardSubtitle.textContent = 'Select a month to view costs';
             }
             
-            // Populate Summary Cards
             if (document.getElementById('totalCostCard')) document.getElementById('totalCostCard').innerHTML = `<div class="flex justify-between items-center"><div><p class="text-gray-500 text-sm">Total Cost</p><h3 class="text-3xl font-bold mt-1 total-value">${formatCurrency(grandTotal)}</h3></div><div class="icon-bg"><i class="fas fa-dollar-sign"></i></div></div>`;
-            const topService = findTopService(accounts);
+            const topService = findTopService(currentAccountsData);
             if (document.getElementById('topServiceCard')) document.getElementById('topServiceCard').innerHTML = `<div class="flex justify-between items-center"><div><p class="text-gray-500 text-sm">Top Service</p><h3 class="text-2xl font-semibold mt-1 text-green-600 truncate" title="${topService.name || 'N/A'}">${topService.name || 'N/A'}</h3><p class="text-xl font-bold text-green-600">${formatCurrency(topService.cost)}</p></div><div class="icon-bg"><i class="fas fa-star"></i></div></div>`;
-            if (document.getElementById('activeAccountsCard')) document.getElementById('activeAccountsCard').innerHTML = `<div class="flex justify-between items-center"><div><p class="text-gray-500 text-sm">Active Accounts</p><h3 class="text-3xl font-bold mt-1 text-purple-600">${accounts.length}</h3></div><div class="icon-bg"><i class="fas fa-users"></i></div></div>`;
+            if (document.getElementById('activeAccountsCard')) document.getElementById('activeAccountsCard').innerHTML = `<div class="flex justify-between items-center"><div><p class="text-gray-500 text-sm">Active Accounts</p><h3 class="text-3xl font-bold mt-1 text-purple-600">${currentAccountsData.length}</h3></div><div class="icon-bg"><i class="fas fa-users"></i></div></div>`;
             
-            // Clear previous table content
             billingTableContainer.innerHTML = '';
-            
-            // Show summary cards and main content (table area)
-            summaryCardsContainer.classList.remove('hidden');
+            summaryCardsContainer.classList.remove('hidden'); 
             mainDashboardContent.classList.remove('hidden');
-            // Apply fade-in
+            
             [summaryCardsContainer, mainDashboardContent].forEach(el => {
-                el.classList.remove('content-fade-in');
-                void el.offsetWidth; // Trigger reflow
-                el.classList.add('content-fade-in');
+                if(el) { 
+                    el.classList.remove('content-fade-in');
+                    void el.offsetWidth; 
+                    el.classList.add('content-fade-in');
+                }
             });
 
-
-            if (accounts.length > 0) {
-                noDataMessage.classList.add('hidden'); // Hide "no data" message if there are accounts
-                accounts.forEach(account => {
+            if (currentAccountsData.length > 0) {
+                noDataMessage.classList.add('hidden');
+                currentAccountsData.forEach(account => {
                     const accountName = account.name || 'Unknown Account';
                     const accountId = account.id || 'N/A';
                     const accountTotalCost = typeof account.totalCost === 'number' ? account.totalCost : 0;
@@ -320,21 +351,31 @@
                                     <div class="text-sm text-gray-500">ID: ${accountId}</div>
                                 </div>
                             </div>
-                            <div class="text-right mx-4">
+                            <div class="text-right mx-2 flex-shrink-0">
                                 <div class="font-semibold text-lg text-gray-800">${formatCurrency(accountTotalCost)}</div>
                                 <div class="text-sm text-gray-500">${services.length} services</div>
                             </div>
-                            <div class="text-gray-400 chevron-icon"><i class="fas fa-chevron-right"></i></div>
+                            <button onclick="event.stopPropagation(); getOptimizationTips('${accountId}')" 
+                                    title="Get Cost Optimization Tips"
+                                    class="ml-2 px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-md hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-150 ease-in-out flex-shrink-0">
+                                <i class="fas fa-wand-magic-sparkles mr-1"></i> Get Tips
+                            </button>
+                            <div class="text-gray-400 chevron-icon ml-2 flex-shrink-0"><i class="fas fa-chevron-right"></i></div>
                         </div>
                         <div class="billing-details bg-gray-50/50">
-                            <div class="p-6"><h4 class="font-semibold text-gray-700 mb-2">Service Breakdown</h4><div class="overflow-x-auto border rounded-lg shadow-inner"><table class="min-w-full"><thead class="bg-gray-100"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th><th class="px-6 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">${servicesHtml}</tbody></table></div></div>
+                            <div class="p-6">
+                                <h4 class="font-semibold text-gray-700 mb-2">Service Breakdown</h4>
+                                <div class="service-table-container">
+                                    <table class="min-w-full"><thead class="bg-gray-100"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th><th class="px-6 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">${servicesHtml}</tbody></table>
+                                </div>
+                            </div>
                         </div>`;
                     billingTableContainer.appendChild(rowElement);
                 });
             } else {
-                // No accounts, show appropriate message
+                const queryStartDate = new Date((query.start || '1970-01-01') + 'T00:00:00Z');
                 const today = new Date();
-                const firstDayOfSelectedMonth = new Date(Date.UTC(parseInt(query.start.substring(0,4)), parseInt(query.start.substring(5,7)) - 1, 1));
+                const firstDayOfSelectedMonth = new Date(Date.UTC(queryStartDate.getUTCFullYear(), queryStartDate.getUTCMonth(), 1));
                 const firstDayOfCurrentMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
 
                 if (firstDayOfSelectedMonth >= firstDayOfCurrentMonth && query.granularity === 'DAILY') {
@@ -343,12 +384,61 @@
                     noDataMessage.textContent = `No billing data found for the selected period: ${queryStartDate.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })}.`;
                 }
                 noDataMessage.classList.remove('hidden');
-                // Summary cards are already visible with $0/N/A/0, table area is mainDashboardContent which is visible but its billingTableContainer is empty.
+            }
+        };
+
+        // --- Function to Get Optimization Tips (Corrected) ---
+        async function getOptimizationTips(accountId) {
+            console.log(`Attempting to get optimization tips for Account ID: ${accountId}`);
+
+            const accountData = currentAccountsData.find(acc => acc.id === accountId);
+            if (!accountData) {
+                console.error("Account data not found for ID:", accountId, "Current data:", currentAccountsData);
+                geminiSuggestionsContent.innerHTML = '<p class="text-red-600">Error: Account data not found. Please refresh the dashboard.</p>';
+                openGeminiModal(); // CORRECTED
+                return;
+            }
+            console.log("Found account data for tips:", accountData);
+
+            geminiSuggestionsContent.innerHTML = '<p class="animate-pulse text-gray-500">✨ Thinking of some bright ideas for you... this may take a moment.</p>';
+            openGeminiModal(); // CORRECTED
+
+            try {
+                console.log(`Fetching suggestions from: ${API_BASE_URL}/${accountId}/optimize-suggestions`);
+                const response = await fetch(`${API_BASE_URL}/${accountId}/optimize-suggestions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(accountData)
+                });
+                console.log("API Response Status:", response.status);
+
+                const suggestionsText = await response.text(); 
+                console.log("Raw suggestions text from API:", suggestionsText);
+
+                if (!response.ok) {
+                    throw new Error(`API Error ${response.status}: ${suggestionsText || 'Failed to get suggestions'}`);
+                }
+                
+                let htmlSuggestions = suggestionsText.trim().split('\n')
+                    .map(line => line.trim()).filter(line => line.length > 0)
+                    .map(line => `<li>${line.replace(/^\s*[\*\-]\s*/, '')}</li>`)
+                    .join('');
+                
+                geminiSuggestionsContent.innerHTML = `<ul>${htmlSuggestions}</ul>`;
+
+            } catch (error) {
+                console.error("Error fetching optimization tips:", error);
+                geminiSuggestionsContent.innerHTML = `<p class="text-red-600">Sorry, couldn't get suggestions. ${error.message}</p>`;
             }
         }
 
+        // --- Data Fetching ---
         const fetchCostData = async (url, isInitialLoad = false) => {
-            showBillingView(true); // Show skeleton, hide content areas
+            if (!isInitialLoad && comingSoonMessage.classList.contains('hidden')) { 
+                showBillingView(true); 
+            } else if (isInitialLoad) {
+                showBillingView(true);
+            }
             
             try {
                 await new Promise(resolve => setTimeout(resolve, 300)); 
@@ -380,7 +470,7 @@
             } finally {
                 loadingSkeleton.classList.add('hidden');
             }
-        }
+        };
         
         monthPicker.addEventListener('change', () => {
             const monthValue = monthPicker.value;
@@ -404,20 +494,7 @@
         const loadInitialData = () => fetchCostData(API_BASE_URL, true);
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize sidebar toggle
-            toggleSidebarBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
-                const icon = toggleSidebarBtn.querySelector('i');
-                const text = toggleSidebarBtn.querySelector('.sidebar-text');
-                if (sidebar.classList.contains('collapsed')) {
-                    icon.classList.remove('fa-chevron-left'); icon.classList.add('fa-chevron-right');
-                    if(text) text.textContent = 'Expand';
-                } else {
-                    icon.classList.remove('fa-chevron-right'); icon.classList.add('fa-chevron-left');
-                    if(text) text.textContent = 'Collapse';
-                }
-            });
-            document.getElementById('billingLink').addEventListener('click', (e) => { e.preventDefault(); loadInitialData();});
+            document.getElementById('billingLink').addEventListener('click', (e) => { e.preventDefault(); showBillingView(true); loadInitialData();});
             document.getElementById('kubecutLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Kubecut', 'kubecutLink'); });
             document.getElementById('xampingLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Xamping', 'xampingLink'); });
             
@@ -425,7 +502,7 @@
             const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             monthPicker.value = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
 
-            showBillingView(true); // Setup initial view state with loading
+            showBillingView(true); 
             loadInitialData();
         });
     </script>
