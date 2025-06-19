@@ -3,9 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XamOps - AWS Billing</title>
+    <title>XamOps - AWS Billing & Invoices</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#8b5cf6',
+                        discount: '#10b981',
+                        total: '#3b82f6',
+                        payable: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         /* Base Styles */
         body { font-family: 'Inter', sans-serif; background-color: #eef2f7; }
@@ -25,6 +40,7 @@
         .sidebar nav a { border-left: 4px solid transparent; transition: background-color 0.2s ease, border-left-color 0.2s ease; }
         .sidebar nav a.active-link { background-color: #334155; border-left-color: #60a5fa; }
         .sidebar nav a:hover:not(.active-link) { background-color: #475569; }
+        .submenu-link { padding-left: 3.5rem !important; }
 
         /* Billing Row Styles */
         .billing-row.expanded .chevron-icon { transform: rotate(90deg); }
@@ -35,7 +51,15 @@
         /* Main Content Layout */
         .main-content-wrapper { display: flex; flex-direction: column; height: 100vh; }
         .main-header { flex-shrink: 0; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .main-body-area { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding: 1.5rem; position: relative; }
+        .main-body-area {
+            flex-grow: 1; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            padding: 1.5rem; 
+            position: relative;
+            height: calc(100vh - 4rem); /* Adjust based on header height */
+        }
         .summary-cards-fixed { flex-shrink: 0; margin-bottom: 1.5rem; }
         .account-details-scrollable { flex-grow: 1; overflow-y: auto; min-height: 300px; }
 
@@ -51,11 +75,19 @@
         .top-service-card .icon-bg { background-color: #f0fdf4; color: #16a34a; }
         .active-accounts-card .icon-bg { background-color: #f5f3ff; color: #7c3aed; }
 
-        /* Skeleton Styles */
+        /* Skeleton and Animation Styles */
         .skeleton-card-bg { background-color: #e5e7eb; border-radius: 0.75rem; }
         .skeleton-line-bg { background-color: #d1d5db; border-radius: 0.25rem; }
         .content-fade-in { animation: fadeIn 0.5s ease-out forwards; opacity: 0; }
         @keyframes fadeIn { to { opacity: 1; } }
+
+        .animate-pulse { animation: pulse 1s; }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
         .billing-row-header:hover { background-color: #f9fafb; }
         .service-table-container { max-height: 350px; overflow-y: auto; overflow-x: auto; border-radius: 0.5rem; border: 1px solid #e5e7eb; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
 
@@ -67,11 +99,68 @@
         .modal-content ul { list-style-type: none; padding-left: 0; }
         .modal-content li { margin-bottom: 0.75rem; padding-left: 1.25rem; position: relative; line-height: 1.6; }
         .modal-content li::before { content: "✨"; position: absolute; left: 0; color: #8b5cf6; }
+        
+        /* Invoice Styles */
+        .invoice-header { background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%); color: white; }
+        .invoice-row { border-bottom: 1px dashed #e5e7eb; }
+        .discount-badge { background-color: #dcfce7; color: #16a34a; }
+        .invoice-total-row { border-top: 2px solid #1e293b; font-weight: 600; }
+        .payable-row { background-color: #fef2f2; color: #b91c1c; font-weight: 700; }
+        .invoice-card { max-width: 800px; margin: 0 auto; max-height: 80vh; overflow-y: auto; }
+
+        #invoiceSection { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+        .invoice-scroll-container { flex: 1; overflow-y: auto; min-height: 0; }
+        
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .account-select-container { position: relative; min-width: 250px; }
+        .account-select-container::after {
+            content: "▼"; position: absolute; right: 12px; top: 50%;
+            transform: translateY(-50%); color: #6b7280; pointer-events: none;
+        }
+        
+        #billingDashboardSection #invoiceFilters {
+            display: none;
+        }
+        
+        @media print {
+            .invoice-card { max-height: none; overflow: visible; box-shadow: none !important; border: none !important; }
+            .main-header, .sidebar, footer, #filterAndCardsSection, .no-print, #invoiceFilters { display: none !important; }
+            body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
+        }
+
+        @media (max-width: 768px) {
+            #invoiceFilters .flex-wrap {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            #invoiceFilters .flex-wrap > div:first-child {
+                margin-bottom: 1rem;
+            }
+            #invoiceFilters .flex-wrap > div:last-child {
+                width: 100%;
+                flex-direction: column;
+                align-items: stretch;
+            }
+            #invoiceFilters .flex-wrap > div:last-child > div {
+                margin-bottom: 1rem;
+            }
+             #invoiceFilters .flex-wrap > div:last-child > div:last-child {
+                margin-bottom: 0;
+            }
+            .account-select-container {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="flex h-screen overflow-hidden">
-        <div id="sidebar" class="sidebar text-white w-64 flex-shrink-0 flex flex-col">
+        <div id="sidebar" class="sidebar text-white w-64 flex-shrink-0 flex flex-col no-print">
             <div class="p-4 flex items-center border-b border-gray-700 h-16">
                 <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center"> <i class="fas fa-cogs"></i> </div>
                 <span class="logo-text ml-3 text-xl font-bold">XamOps</span>
@@ -79,7 +168,18 @@
             <div class="flex-1 overflow-y-auto py-4">
                 <nav>
                     <a href="#" id="billingLink" class="block px-4 py-3 text-white active-link">
-                        <div class="flex items-center relative"> <i class="fas fa-file-invoice w-6 text-center"></i> <span class="sidebar-text ml-3">Billing</span> <span class="tooltip">Billing</span> </div>
+                        <div class="flex items-center relative"> 
+                            <i class="fas fa-file-invoice w-6 text-center"></i> 
+                            <span class="sidebar-text ml-3">Billing</span> 
+                            <span class="tooltip">Billing</span> 
+                        </div>
+                    </a>
+                    <a href="#" id="invoiceLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white submenu-link">
+                        <div class="flex items-center relative"> 
+                            <i class="fas fa-receipt w-6 text-center"></i> 
+                            <span class="sidebar-text ml-3">Invoice</span> 
+                            <span class="tooltip">Invoice</span> 
+                        </div>
                     </a>
                     <a href="#" id="kubecutLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
                         <div class="flex items-center relative"> <i class="fas fa-box-open w-6 text-center"></i> <span class="sidebar-text ml-3">Kubecut</span> <span class="tooltip">Kubecut</span> </div>
@@ -97,79 +197,213 @@
         </div>
         
         <div class="flex-1 flex flex-col overflow-hidden main-content-wrapper">
-            <header class="main-header sticky top-0 z-20">
+            <header class="main-header sticky top-0 z-20 no-print">
                  <div class="px-6 py-4 flex items-center justify-between h-16">
-                    <h1 id="mainHeaderText" class="text-2xl font-semibold text-gray-800">Billing Dashboard</h1>
-                    <div class="flex items-center">
+                     <h1 id="mainHeaderText" class="text-2xl font-semibold text-gray-800">Billing Dashboard</h1>
+                     <div class="flex items-center">
                          <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">AM</div>
                          <span class="ml-2 text-gray-700">Aditya Mehta</span>
-                    </div>
-                </div>
+                     </div>
+                 </div>
             </header>
             
             <div class="main-body-area"> 
-                <div id="filterAndCardsSection" class="summary-cards-fixed">
-                    <div class="flex flex-wrap justify-between items-center mb-6">
-                        <div>
-                            <h2 class="text-xl font-semibold text-gray-800">Billing Summary</h2>
-                            <p class="text-gray-600 text-sm" id="dashboardSubtitle">Select a month to view costs</p>
+                <div id="billingDashboardSection">
+                    <div id="filterAndCardsSection" class="summary-cards-fixed">
+                        <div class="flex flex-wrap justify-between items-center mb-6">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-800">Billing Summary</h2>
+                                <p class="text-gray-600 text-sm" id="dashboardSubtitle">Select a month to view costs</p>
+                            </div>
+                            <div class="flex items-center mt-2 sm:mt-0">
+                                <label for="month-picker" class="block text-sm font-medium text-gray-700 mr-2">Month:</label>
+                                <input type="month" id="month-picker" class="form-input px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                            </div>
                         </div>
-                        <div class="flex items-center mt-2 sm:mt-0">
-                            <label for="month-picker" class="block text-sm font-medium text-gray-700 mr-2">Month:</label>
-                            <input type="month" id="month-picker" class="form-input px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                        <div id="summaryCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6 hidden">
+                            <div class="rounded-lg shadow p-5 summary-card total-cost-card" id="totalCostCard"></div>
+                            <div class="rounded-lg shadow p-5 summary-card top-service-card" id="topServiceCard"></div>
+                            <div class="rounded-lg shadow p-5 summary-card active-accounts-card" id="activeAccountsCard"></div>
                         </div>
                     </div>
-                    <div id="summaryCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6 hidden">
-                        <div class="rounded-lg shadow p-5 summary-card total-cost-card" id="totalCostCard"></div>
-                        <div class="rounded-lg shadow p-5 summary-card top-service-card" id="topServiceCard"></div>
-                        <div class="rounded-lg shadow p-5 summary-card active-accounts-card" id="activeAccountsCard"></div>
+                    
+                    <div class="account-details-scrollable">
+                        <div id="loadingSkeleton" class="hidden space-y-4">
+                             <div class="animate-pulse">
+                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                                     <div class="h-32 bg-gray-300 rounded-lg skeleton-card-bg"></div>
+                                     <div class="h-32 bg-gray-300 rounded-lg skeleton-card-bg"></div>
+                                     <div class="h-32 bg-gray-300 rounded-lg skeleton-card-bg"></div>
+                                 </div>
+                                 <div class="h-12 bg-gray-300 rounded-md skeleton-card-bg mb-2"></div>
+                                 <div class="h-20 bg-gray-200 skeleton-card-bg mb-2"></div>
+                                 <div class="h-20 bg-gray-200 skeleton-card-bg mb-2"></div>
+                                 <div class="h-20 bg-gray-200 skeleton-card-bg rounded-md"></div>
+                             </div>
+                        </div>
+                        <div id="errorMessage" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-4"></div>
+                        <div id="mainDashboardContent" class="hidden">
+                            <div class="bg-white rounded-lg shadow overflow-hidden">
+                                <div class="px-6 py-4 border-b border-gray-200">
+                                    <h3 class="font-semibold text-gray-800">Account Billing Details</h3>
+                                </div>
+                                <div id="billingTableContainer" class="divide-y divide-gray-200"></div>
+                            </div>
+                        </div>
+                        <div id="noDataMessage" class="hidden p-6 text-center text-lg text-gray-600 bg-white rounded-lg shadow"></div>
                     </div>
                 </div>
                 
-                <div class="account-details-scrollable">
-                    <div id="loadingSkeleton" class="hidden space-y-4">
-                         <div class="animate-pulse">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                                <div class="h-32 bg-gray-300 rounded-lg skeleton-card-bg"></div>
-                                <div class="h-32 bg-gray-300 rounded-lg skeleton-card-bg"></div>
-                                <div class="h-32 bg-gray-300 rounded-lg skeleton-card-bg"></div>
+                <div id="invoiceSection" class="hidden flex flex-col h-full">
+                    <div id="invoiceFilters" class="no-print">
+                        <div class="flex flex-wrap justify-between items-center mb-6">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-800">Monthly Invoice</h2>
+                                <p class="text-gray-600 text-sm">Your AWS usage costs with Xammer discounts</p>
                             </div>
-                            <div class="h-12 bg-gray-300 rounded-md skeleton-card-bg mb-2"></div>
-                            <div class="h-20 bg-gray-200 skeleton-card-bg mb-2"></div>
-                            <div class="h-20 bg-gray-200 skeleton-card-bg mb-2"></div>
-                            <div class="h-20 bg-gray-200 skeleton-card-bg rounded-md"></div>
+                            <div class="flex items-center space-x-4 mt-2 sm:mt-0">
+                                <div>
+                                    <label for="invoice-month-picker" class="block text-sm font-medium text-gray-700 mb-1">Month:</label>
+                                    <input type="month" id="invoice-month-picker" class="form-input px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                                </div>
+                                <div class="account-select-container">
+                                    <label for="account-select" class="block text-sm font-medium text-gray-700 mb-1">Account:</label>
+                                    <select id="account-select" class="w-full form-select px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm bg-white">
+                                        <option value="">Select an account</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div id="errorMessage" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-4"></div>
-                    <div id="mainDashboardContent" class="hidden">
-                        <div class="bg-white rounded-lg shadow overflow-hidden">
-                            <div class="px-6 py-4 border-b border-gray-200">
-                                <h3 class="font-semibold text-gray-800">Account Billing Details</h3>
+                    
+                    <div class="flex-1 overflow-y-auto min-h-0">
+                        <div id="invoiceLoading" class="hidden">
+                            <div class="flex flex-col items-center justify-center py-12">
+                                <i class="fas fa-spinner spinner text-indigo-600 text-3xl mb-4"></i>
+                                <p class="text-gray-600">Generating your invoice...</p>
                             </div>
-                            <div id="billingTableContainer" class="divide-y divide-gray-200"></div>
+                        </div>
+                        
+                        <div id="invoiceError" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-6"></div>
+                        
+                        <div id="invoiceContent" class="hidden bg-white rounded-lg shadow overflow-hidden invoice-card max-h-[80vh] overflow-y-auto">
+                            <div class="invoice-header px-6 py-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h1 class="text-2xl font-bold">Xammer Cloud Services</h1>
+                                        <p class="text-indigo-200">Invoice for AWS Usage</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-lg font-semibold">Invoice # <span id="invoiceNumber"></span></p>
+                                        <p class="text-indigo-200">Date: <span id="invoiceDate"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="p-6">
+                                <div class="grid grid-cols-2 gap-6 mb-8">
+                                    <div>
+                                        <h3 class="font-medium text-gray-700 mb-2">Bill To:</h3>
+                                        <p class="font-semibold" id="customerName"></p>
+                                        <p id="customerCompany"></p>
+                                        <p id="customerEmail"></p>
+                                    </div>
+                                    <div class="text-right">
+                                        <h3 class="font-medium text-gray-700 mb-2">Period:</h3>
+                                        <p id="invoicePeriod"></p>
+                                        <p class="mt-2">Due Date: <span id="invoiceDueDate"></span></p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-8">
+                                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Cost Summary</h3>
+                                    <div class="bg-gray-50 rounded-lg border border-gray-200">
+                                        <div class="grid grid-cols-4 px-4 py-3 bg-gray-100 font-medium text-gray-700">
+                                            <div>Service</div>
+                                            <div class="text-right">Usage</div>
+                                            <div class="text-right">Unit Price</div>
+                                            <div class="text-right">Amount</div>
+                                        </div>
+                                        <div id="invoiceItemsContainer"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-6 bg-gray-50 rounded-lg p-4 no-print">
+                                    <div class="flex items-center">
+                                        <label for="discountInput" class="block text-sm font-medium text-gray-700 mr-3">Apply Custom Discount:</label>
+                                        <div class="flex items-center">
+                                            <input type="number" id="discountInput" min="0" max="100" step="0.1"
+                                                   class="w-20 form-input px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm mr-2"
+                                                   placeholder="%">
+                                            <button id="applyDiscountBtn" class="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm">
+                                                Apply
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-2">Enter a discount percentage (0-100) and click Apply</p>
+                                </div>
+
+                                <div class="flex justify-end mt-4">
+                                    <div class="w-full md:w-1/2">
+                                        <div class="invoice-row flex justify-between py-2">
+                                            <span class="font-medium">Subtotal:</span>
+                                            <span id="invoiceSubtotal">$0.00</span>
+                                        </div>
+                                        <div class="invoice-row flex justify-between py-2">
+                                            <div class="flex items-center">
+                                                <span class="font-medium">Xammer Discount</span>
+                                                <span id="discountPercentage" class="discount-badge text-xs py-1 px-2 rounded-full ml-2">0%</span>
+                                                <span>:</span>
+                                            </div>
+                                            <span id="invoiceDiscount" class="text-green-600">-$0.00</span>
+                                        </div>
+                                        <div class="invoice-total-row flex justify-between py-3 mt-2">
+                                            <span class="font-medium text-gray-800">Total:</span>
+                                            <span id="invoiceTotal" class="font-bold">$0.00</span>
+                                        </div>
+                                        <div class="payable-row flex justify-between py-3 mt-3 rounded-lg px-4">
+                                            <span class="font-medium">Net Payable:</span>
+                                            <span id="invoiceNetPayable" class="font-bold">$0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-8 pt-6 border-t border-gray-200 text-sm text-gray-500">
+                                    <p class="mb-2"><span class="font-medium">Notes:</span> Payment terms are Net 15. Late payments may be subject to a fee of 1.5% per month.</p>
+                                    <p>Thank you for choosing Xammer Cloud Services!</p>
+                                </div>
+                            </div>
+                            
+                            <div class="px-6 py-4 bg-gray-50 flex justify-between items-center no-print">
+                                <button id="downloadInvoiceBtn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-indigo-700 flex items-center">
+                                    <i class="fas fa-download mr-2"></i> Download PDF
+                                </button>
+                                <button id="printInvoiceBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 flex items-center">
+                                    <i class="fas fa-print mr-2"></i> Print Invoice
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div id="noDataMessage" class="hidden p-6 text-center text-lg text-gray-600 bg-white rounded-lg shadow"></div>
                 </div>
+                
                 <div id="comingSoonMessage" class="hidden p-6 text-center text-2xl text-gray-700"></div>
                 
-                <footer class="text-xs text-gray-500 text-right py-3 mt-auto flex-shrink-0"> 
+                <footer class="text-xs text-gray-500 text-right py-3 mt-auto flex-shrink-0 no-print"> 
                     Powered by Xammer
                 </footer>
             </div>
         </div>
     </div>
 
-    <div id="geminiModalOverlay" class="modal-overlay">
+    <div id="geminiModalOverlay" class="modal-overlay no-print">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-semibold text-gray-800">✨ Cost Optimization Suggestions</h3>
                 <button id="closeGeminiModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
             </div>
             <div id="geminiSuggestionsContent" class="text-gray-700 text-sm leading-relaxed">
-                <p>Loading suggestions...</p>
             </div>
-             <button id="copyGeminiSuggestionsBtn" class="mt-6 px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Copy Suggestions</button>
+            <button id="copyGeminiSuggestionsBtn" class="mt-6 px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Copy Suggestions</button>
         </div>
     </div>
 
@@ -189,7 +423,25 @@
         const billingTableContainer = document.getElementById('billingTableContainer');
         const dashboardSubtitle = document.getElementById('dashboardSubtitle');
         const API_BASE_URL = '/api/costs'; 
+        const INVOICE_API_URL = '/api/invoices'; 
 
+        // Invoice elements
+        const billingDashboardSection = document.getElementById('billingDashboardSection');
+        const invoiceSection = document.getElementById('invoiceSection');
+        const invoiceMonthPicker = document.getElementById('invoice-month-picker');
+        const accountSelect = document.getElementById('account-select');
+        const invoiceLoading = document.getElementById('invoiceLoading');
+        const invoiceError = document.getElementById('invoiceError');
+        const invoiceContent = document.getElementById('invoiceContent');
+        const invoiceItemsContainer = document.getElementById('invoiceItemsContainer');
+        const invoiceSubtotal = document.getElementById('invoiceSubtotal');
+        const invoiceDiscount = document.getElementById('invoiceDiscount');
+        const invoiceTotal = document.getElementById('invoiceTotal');
+        const invoiceNetPayable = document.getElementById('invoiceNetPayable');
+        const invoicePeriod = document.getElementById('invoicePeriod');
+        const discountPercentage = document.getElementById('discountPercentage');
+
+        // Gemini modal elements
         const geminiModalOverlay = document.getElementById('geminiModalOverlay');
         const geminiSuggestionsContent = document.getElementById('geminiSuggestionsContent');
         const closeGeminiModalBtn = document.getElementById('closeGeminiModalBtn');
@@ -197,23 +449,20 @@
         let currentAccountsData = [];
         
         // --- UI Interactivity ---
-        // Modal Helper Functions (defined early)
-        function openGeminiModal() { 
-            if(geminiModalOverlay) geminiModalOverlay.classList.add('active'); 
-        }
-        function closeGeminiModal() { 
-            if(geminiModalOverlay) geminiModalOverlay.classList.remove('active'); 
-        }
+        function openGeminiModal() { geminiModalOverlay.classList.add('active'); }
+        function closeGeminiModal() { geminiModalOverlay.classList.remove('active'); }
 
         toggleSidebarBtn.addEventListener('click', () => {
             sidebar.classList.toggle('collapsed');
             const icon = toggleSidebarBtn.querySelector('i');
             const text = toggleSidebarBtn.querySelector('.sidebar-text');
             if (sidebar.classList.contains('collapsed')) {
-                icon.classList.remove('fa-chevron-left'); icon.classList.add('fa-chevron-right');
+                icon.classList.remove('fa-chevron-left'); 
+                icon.classList.add('fa-chevron-right');
                 if(text) text.textContent = 'Expand';
             } else {
-                icon.classList.remove('fa-chevron-right'); icon.classList.add('fa-chevron-left');
+                icon.classList.remove('fa-chevron-right'); 
+                icon.classList.add('fa-chevron-left');
                 if(text) text.textContent = 'Collapse';
             }
         });
@@ -230,7 +479,12 @@
         
         function showBillingView(isLoading = false) {
             mainHeaderText.textContent = 'Billing Dashboard';
-            filterAndCardsSection.classList.remove('hidden');
+            billingDashboardSection.classList.remove('hidden');
+            
+            // Hide invoice section AND its filters
+            invoiceSection.classList.add('hidden');
+            document.getElementById('invoiceFilters')?.classList.add('hidden');
+            
             comingSoonMessage.classList.add('hidden');
             errorMessageDiv.classList.add('hidden');
             noDataMessage.classList.add('hidden');
@@ -244,23 +498,38 @@
                 loadingSkeleton.classList.add('hidden');
             }
         }
+        
+        function showInvoiceView() {
+            mainHeaderText.textContent = 'Invoice Details';
+            billingDashboardSection.classList.add('hidden');
+            
+            // Show invoice section AND its filters
+            invoiceSection.classList.remove('hidden');
+            document.getElementById('invoiceFilters')?.classList.remove('hidden');
+            
+            comingSoonMessage.classList.add('hidden');
+            errorMessageDiv.classList.add('hidden');
+            noDataMessage.classList.add('hidden');
+            updateActiveSidebarLink('invoiceLink');
+            
+            fetchAccountsForInvoice();
+        }
 
         function showComingSoon(featureName, linkId) {
             mainHeaderText.textContent = featureName;
-            filterAndCardsSection.classList.add('hidden');
-            summaryCardsContainer.classList.add('hidden');
-            mainDashboardContent.classList.add('hidden');
-            noDataMessage.classList.add('hidden');
-            errorMessageDiv.classList.add('hidden');
-            loadingSkeleton.classList.add('hidden');
+            billingDashboardSection.classList.add('hidden');
+            invoiceSection.classList.add('hidden');
             comingSoonMessage.textContent = `${featureName} - Coming Soon!`;
             comingSoonMessage.classList.remove('hidden');
             updateActiveSidebarLink(linkId);
         }
         
-        if(closeGeminiModalBtn) closeGeminiModalBtn.addEventListener('click', closeGeminiModal);
-        if(geminiModalOverlay) geminiModalOverlay.addEventListener('click', (e) => { if (e.target === geminiModalOverlay) closeGeminiModal(); });
-        if(copyGeminiSuggestionsBtn) copyGeminiSuggestionsBtn.addEventListener('click', () => {
+        closeGeminiModalBtn.addEventListener('click', closeGeminiModal);
+        geminiModalOverlay.addEventListener('click', (e) => { 
+            if (e.target === geminiModalOverlay) closeGeminiModal(); 
+        });
+        
+        copyGeminiSuggestionsBtn.addEventListener('click', () => {
             const textToCopy = geminiSuggestionsContent.innerText || geminiSuggestionsContent.textContent;
             navigator.clipboard.writeText(textToCopy).then(() => {
                 alert('Suggestions copied to clipboard!');
@@ -271,7 +540,10 @@
         });
 
         // --- Data Formatting & Calculation ---
-        const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+        const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { 
+            style: 'currency', 
+            currency: 'USD' 
+        }).format(amount || 0);
         
         const findTopService = (accounts) => {
             if (!Array.isArray(accounts) || accounts.length === 0) return { name: 'N/A', cost: 0 };
@@ -299,7 +571,6 @@
             const grandTotal = data?.grandTotal ?? 0;
             currentAccountsData = Array.isArray(data?.accounts) ? data.accounts : [];
             const query = data?.query ?? { start: 'N/A', end: 'N/A', granularity: 'N/A' };
-
             if (query.start !== 'N/A') {
                 const queryStartDate = new Date(query.start + 'T00:00:00Z'); 
                 const monthYearString = `${queryStartDate.getUTCFullYear()}-${String(queryStartDate.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -308,24 +579,16 @@
             } else {
                 dashboardSubtitle.textContent = 'Select a month to view costs';
             }
-            
             if (document.getElementById('totalCostCard')) document.getElementById('totalCostCard').innerHTML = `<div class="flex justify-between items-center"><div><p class="text-gray-500 text-sm">Total Cost</p><h3 class="text-3xl font-bold mt-1 total-value">${formatCurrency(grandTotal)}</h3></div><div class="icon-bg"><i class="fas fa-dollar-sign"></i></div></div>`;
             const topService = findTopService(currentAccountsData);
             if (document.getElementById('topServiceCard')) document.getElementById('topServiceCard').innerHTML = `<div class="flex justify-between items-center"><div><p class="text-gray-500 text-sm">Top Service</p><h3 class="text-2xl font-semibold mt-1 text-green-600 truncate" title="${topService.name || 'N/A'}">${topService.name || 'N/A'}</h3><p class="text-xl font-bold text-green-600">${formatCurrency(topService.cost)}</p></div><div class="icon-bg"><i class="fas fa-star"></i></div></div>`;
             if (document.getElementById('activeAccountsCard')) document.getElementById('activeAccountsCard').innerHTML = `<div class="flex justify-between items-center"><div><p class="text-gray-500 text-sm">Active Accounts</p><h3 class="text-3xl font-bold mt-1 text-purple-600">${currentAccountsData.length}</h3></div><div class="icon-bg"><i class="fas fa-users"></i></div></div>`;
-            
             billingTableContainer.innerHTML = '';
             summaryCardsContainer.classList.remove('hidden'); 
             mainDashboardContent.classList.remove('hidden');
-            
             [summaryCardsContainer, mainDashboardContent].forEach(el => {
-                if(el) { 
-                    el.classList.remove('content-fade-in');
-                    void el.offsetWidth; 
-                    el.classList.add('content-fade-in');
-                }
+                if(el) { el.classList.remove('content-fade-in'); void el.offsetWidth; el.classList.add('content-fade-in'); }
             });
-
             if (currentAccountsData.length > 0) {
                 noDataMessage.classList.add('hidden');
                 currentAccountsData.forEach(account => {
@@ -333,133 +596,236 @@
                     const accountId = account.id || 'N/A';
                     const accountTotalCost = typeof account.totalCost === 'number' ? account.totalCost : 0;
                     const services = Array.isArray(account.services) ? account.services : [];
-
-                    const servicesHtml = services.map(service => {
-                        const serviceName = service.name || 'Unknown Service';
-                        const serviceCost = typeof service.cost === 'number' ? service.cost : 0;
-                        return `<tr class="hover:bg-gray-50 transition-colors duration-150"><td class="px-6 py-3 text-sm text-gray-700">${serviceName}</td><td class="px-6 py-3 text-sm text-gray-600 text-right">${formatCurrency(serviceCost)}</td></tr>`;
-                    }).join('');
-
+                    const servicesHtml = services.map(service => `<tr class="hover:bg-gray-50 transition-colors duration-150"><td class="px-6 py-3 text-sm text-gray-700">${service.name || 'Unknown Service'}</td><td class="px-6 py-3 text-sm text-gray-600 text-right">${formatCurrency(service.cost || 0)}</td></tr>`).join('');
                     const rowElement = document.createElement('div');
                     rowElement.className = 'billing-row';
                     rowElement.innerHTML = `
                         <div class="billing-row-header px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors duration-150" onclick="toggleBillingRow(this.parentElement)">
-                            <div class="flex items-center flex-1 min-w-0">
-                                <div class="w-10 h-10 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center mr-4 flex-shrink-0"><i class="fas fa-building"></i></div>
-                                <div class="min-w-0">
-                                    <div class="font-medium text-gray-800 truncate" title="${accountName}">${accountName}</div>
-                                    <div class="text-sm text-gray-500">ID: ${accountId}</div>
-                                </div>
-                            </div>
-                            <div class="text-right mx-2 flex-shrink-0">
-                                <div class="font-semibold text-lg text-gray-800">${formatCurrency(accountTotalCost)}</div>
-                                <div class="text-sm text-gray-500">${services.length} services</div>
-                            </div>
-                            <button onclick="event.stopPropagation(); getOptimizationTips('${accountId}')" 
-                                    title="Get Cost Optimization Tips"
-                                    class="ml-2 px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-md hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-150 ease-in-out flex-shrink-0">
-                                <i class="fas fa-wand-magic-sparkles mr-1"></i> Get Tips
-                            </button>
+                            <div class="flex items-center flex-1 min-w-0"><div class="w-10 h-10 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center mr-4 flex-shrink-0"><i class="fas fa-building"></i></div><div class="min-w-0"><div class="font-medium text-gray-800 truncate" title="${accountName}">${accountName}</div><div class="text-sm text-gray-500">ID: ${accountId}</div></div></div>
+                            <div class="text-right mx-2 flex-shrink-0"><div class="font-semibold text-lg text-gray-800">${formatCurrency(accountTotalCost)}</div><div class="text-sm text-gray-500">${services.length} services</div></div>
+                            <button onclick="event.stopPropagation(); getOptimizationTips('${accountId}')" title="Get Cost Optimization Tips" class="ml-2 px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-md hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-150 ease-in-out flex-shrink-0 no-print"><i class="fas fa-wand-magic-sparkles mr-1"></i> Get Tips</button>
                             <div class="text-gray-400 chevron-icon ml-2 flex-shrink-0"><i class="fas fa-chevron-right"></i></div>
                         </div>
-                        <div class="billing-details bg-gray-50/50">
-                            <div class="p-6">
-                                <h4 class="font-semibold text-gray-700 mb-2">Service Breakdown</h4>
-                                <div class="service-table-container">
-                                    <table class="min-w-full"><thead class="bg-gray-100"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th><th class="px-6 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">${servicesHtml}</tbody></table>
-                                </div>
-                            </div>
-                        </div>`;
+                        <div class="billing-details bg-gray-50/50"><div class="p-6"><h4 class="font-semibold text-gray-700 mb-2">Service Breakdown</h4><div class="service-table-container"><table class="min-w-full"><thead class="bg-gray-100"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th><th class="px-6 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">${servicesHtml}</tbody></table></div></div></div>`;
                     billingTableContainer.appendChild(rowElement);
                 });
             } else {
-                const queryStartDate = new Date((query.start || '1970-01-01') + 'T00:00:00Z');
-                const today = new Date();
-                const firstDayOfSelectedMonth = new Date(Date.UTC(queryStartDate.getUTCFullYear(), queryStartDate.getUTCMonth(), 1));
-                const firstDayOfCurrentMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-
-                if (firstDayOfSelectedMonth >= firstDayOfCurrentMonth && query.granularity === 'DAILY') {
-                    noDataMessage.textContent = `Cost data for ${queryStartDate.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })} is not yet available or is currently zero. Please check back later.`;
-                } else {
-                    noDataMessage.textContent = `No billing data found for the selected period: ${queryStartDate.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })}.`;
-                }
+                noDataMessage.textContent = 'No billing data found for the selected period.';
                 noDataMessage.classList.remove('hidden');
             }
         };
+        
+        // --- Account Selection Functions ---
+        function populateAccountDropdown(accounts) {
+            accountSelect.innerHTML = '<option value="">Select an account</option>';
+            if (!accounts) return;
+            accounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.id;
+                option.textContent = `${account.name} (${account.id})`;
+                accountSelect.appendChild(option);
+            });
+        }
+        
+        async function fetchAccountsForInvoice() {
+            const monthValue = invoiceMonthPicker.value;
+            if (!monthValue) return;
+            const [year, month] = monthValue.split('-').map(Number);
+            const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            const tempDate = new Date(year, month, 1);
+            const endDate = new Date(tempDate.getFullYear(), tempDate.getMonth(), 0).toISOString().split('T')[0];
+            const url = `${INVOICE_API_URL}?start=${startDate}&end=${endDate}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch accounts');
+                const data = await response.json();
+                populateAccountDropdown(data);
+            } catch (error) {
+                console.error('Failed to fetch accounts:', error);
+            }
+        }
+        
+        // --- Invoice Functions ---
+        async function applyCustomDiscount() {
+            const discountInput = document.getElementById('discountInput');
+            const discountValue = parseFloat(discountInput.value);
+            const accountId = document.getElementById('account-select').value;
 
-        // --- Function to Get Optimization Tips (Corrected) ---
-        async function getOptimizationTips(accountId) {
-            console.log(`Attempting to get optimization tips for Account ID: ${accountId}`);
-
-            const accountData = currentAccountsData.find(acc => acc.id === accountId);
-            if (!accountData) {
-                console.error("Account data not found for ID:", accountId, "Current data:", currentAccountsData);
-                geminiSuggestionsContent.innerHTML = '<p class="text-red-600">Error: Account data not found. Please refresh the dashboard.</p>';
-                openGeminiModal(); // CORRECTED
+            if (!accountId) {
+                alert('Please select an account first.');
                 return;
             }
-            console.log("Found account data for tips:", accountData);
-
-            geminiSuggestionsContent.innerHTML = '<p class="animate-pulse text-gray-500">✨ Thinking of some bright ideas for you... this may take a moment.</p>';
-            openGeminiModal(); // CORRECTED
+            if (isNaN(discountValue)) {
+                alert('Please enter a valid discount percentage');
+                return;
+            }
+            if (discountValue < 0 || discountValue > 100) {
+                alert('Discount must be between 0 and 100');
+                return;
+            }
 
             try {
-                console.log(`Fetching suggestions from: ${API_BASE_URL}/${accountId}/optimize-suggestions`);
-                const response = await fetch(`${API_BASE_URL}/${accountId}/optimize-suggestions`, {
+                // Send discount to backend
+                const response = await fetch(`/api/discounts/${accountId}?discount=${discountValue}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Failed to update discount on the server.');
+                }
+                
+                // Recalculate totals on the client-side for immediate feedback
+                const subtotalText = document.getElementById('invoiceSubtotal').textContent;
+                const subtotal = parseFloat(subtotalText.replace(/[$,]/g, ''));
+                const discountAmount = subtotal * (discountValue / 100);
+                const total = subtotal - discountAmount;
+                
+                // Update UI
+                document.getElementById('discountPercentage').textContent = `${discountValue}%`;
+                document.getElementById('invoiceDiscount').textContent = `-${formatCurrency(discountAmount)}`;
+                document.getElementById('invoiceTotal').textContent = formatCurrency(total);
+                document.getElementById('invoiceNetPayable').textContent = formatCurrency(total);
+                
+                // Visual feedback
+                const payableEl = document.getElementById('invoiceNetPayable');
+                payableEl.classList.add('animate-pulse');
+                setTimeout(() => {
+                    payableEl.classList.remove('animate-pulse');
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Discount update failed:', error);
+                alert('Failed to apply discount: ' + error.message);
+            }
+        }
+
+        function renderInvoice(invoice) {
+            if (!invoice) {
+                invoiceContent.classList.add('hidden');
+                invoiceError.textContent = 'No invoice data available for the selected account.';
+                invoiceError.classList.remove('hidden');
+                return;
+            }
+            
+            document.getElementById('customerName').textContent = invoice.name || 'Unknown Account';
+            document.getElementById('customerCompany').textContent = `Account ID: ${invoice.id}`;
+            document.getElementById('discountInput').value = invoice.discountPercentage;
+            
+            invoiceSubtotal.textContent = formatCurrency(invoice.awsTotal);
+            invoiceDiscount.textContent = `-${formatCurrency(invoice.discountAmount)}`;
+            invoiceTotal.textContent = formatCurrency(invoice.awsTotal - invoice.discountAmount);
+            invoiceNetPayable.textContent = formatCurrency(invoice.netPayable);
+            discountPercentage.textContent = `${invoice.discountPercentage}%`;
+            
+            const monthValue = invoiceMonthPicker.value;
+            const [year, month] = monthValue.split('-').map(Number);
+            const startDate = new Date(Date.UTC(year, month - 1, 1));
+            const endDate = new Date(Date.UTC(year, month, 0));
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const monthName = monthNames[startDate.getUTCMonth()];
+            
+            const formattedStartDate = `${monthName} ${startDate.getUTCDate()}, ${startDate.getUTCFullYear()}`;
+            const formattedEndDate = `${monthName} ${endDate.getUTCDate()}, ${endDate.getUTCFullYear()}`;
+            invoicePeriod.textContent = `${formattedStartDate} - ${formattedEndDate}`;
+            
+            const today = new Date();
+            document.getElementById('invoiceDate').textContent = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('invoiceNumber').textContent = `XM-${invoice.id.slice(-4)}-${year}${String(month).padStart(2, '0')}`;
+            
+            const dueDate = new Date(new Date().setDate(today.getDate() + 15));
+            document.getElementById('invoiceDueDate').textContent = dueDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            invoiceItemsContainer.innerHTML = '';
+            if (invoice.services && Array.isArray(invoice.services)) {
+                invoice.services.forEach(service => {
+                    const itemRow = document.createElement('div');
+                    itemRow.className = 'grid grid-cols-4 px-4 py-3 border-b border-gray-100';
+                    itemRow.innerHTML = `
+                        <div>${service.name}</div>
+                        <div class="text-right">${service.usage || 'N/A'}</div>
+                        <div class="text-right">${service.unitPrice ? formatCurrency(service.unitPrice) : 'N/A'}</div>
+                        <div class="text-right font-medium">${formatCurrency(service.cost)}</div>
+                    `;
+                    invoiceItemsContainer.appendChild(itemRow);
+                });
+            }
+            
+            invoiceContent.classList.remove('hidden');
+            invoiceError.classList.add('hidden');
+        }
+        
+        async function fetchInvoiceData() {
+            const monthValue = invoiceMonthPicker.value;
+            const accountId = accountSelect.value;
+            if (!monthValue || !accountId) {
+                invoiceContent.classList.add('hidden');
+                return;
+            }
+            invoiceLoading.classList.remove('hidden');
+            invoiceContent.classList.add('hidden');
+            invoiceError.classList.add('hidden');
+            try {
+                const [year, month] = monthValue.split('-').map(Number);
+                const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+                const tempDate = new Date(year, month, 1);
+                const endDate = new Date(tempDate.getFullYear(), tempDate.getMonth(), 0).toISOString().split('T')[0];
+                const response = await fetch(`${INVOICE_API_URL}?start=${startDate}&end=${endDate}&accountId=${accountId}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errorText || response.statusText}`);
+                }
+                const data = await response.json();
+                renderInvoice(data);
+            } catch (error) {
+                console.error('Failed to load invoice:', error);
+                invoiceError.textContent = `Error loading invoice: ${error.message || 'Please try again later.'}`;
+                invoiceError.classList.remove('hidden');
+            } finally {
+                invoiceLoading.classList.add('hidden');
+            }
+        }
+
+        async function getOptimizationTips(accountId) {
+            const accountData = currentAccountsData.find(acc => acc.id === accountId);
+            if (!accountData) {
+                console.error("Account data not found for ID:", accountId);
+                geminiSuggestionsContent.innerHTML = '<p class="text-red-600">Error: Account data not found. Please refresh the dashboard.</p>';
+                openGeminiModal();
+                return;
+            }
+            geminiSuggestionsContent.innerHTML = '<div class="flex flex-col items-center justify-center py-4"><i class="fas fa-spinner spinner text-indigo-600 text-2xl mb-2"></i><p class="text-gray-600">Thinking of some bright ideas for you...</p></div>';
+            openGeminiModal();
+            try {
+                const response = await fetch(`/api/costs/${accountId}/optimize-suggestions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(accountData)
                 });
-                console.log("API Response Status:", response.status);
-
-                const suggestionsText = await response.text(); 
-                console.log("Raw suggestions text from API:", suggestionsText);
-
                 if (!response.ok) {
-                    throw new Error(`API Error ${response.status}: ${suggestionsText || 'Failed to get suggestions'}`);
+                    const errorText = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errorText}`);
                 }
-                
-                let htmlSuggestions = suggestionsText.trim().split('\n')
-                    .map(line => line.trim()).filter(line => line.length > 0)
-                    .map(line => `<li>${line.replace(/^\s*[\*\-]\s*/, '')}</li>`)
-                    .join('');
-                
-                geminiSuggestionsContent.innerHTML = `<ul>${htmlSuggestions}</ul>`;
-
+                const suggestions = await response.text();
+                const formattedSuggestions = suggestions.split('\n').map(line => line.trim().replace(/^\* |- /,'')).filter(line => line.length > 0).map(line => `<li>${line}</li>`).join('');
+                geminiSuggestionsContent.innerHTML = `<ul>${formattedSuggestions}</ul>`;
             } catch (error) {
                 console.error("Error fetching optimization tips:", error);
-                geminiSuggestionsContent.innerHTML = `<p class="text-red-600">Sorry, couldn't get suggestions. ${error.message}</p>`;
+                geminiSuggestionsContent.innerHTML = `<div class="bg-red-50 p-4 rounded-lg"><div class="flex items-center mb-2"><i class="fas fa-exclamation-circle text-red-500 mr-2"></i><h4 class="font-medium text-red-700">Couldn't get suggestions</h4></div><p class="text-sm text-gray-600">${error.message || 'Please try again later.'}</p></div>`;
             }
         }
-
-        // --- Data Fetching ---
+        
         const fetchCostData = async (url, isInitialLoad = false) => {
-            if (!isInitialLoad && comingSoonMessage.classList.contains('hidden')) { 
-                showBillingView(true); 
-            } else if (isInitialLoad) {
-                showBillingView(true);
-            }
-            
+            if (!isInitialLoad) { showBillingView(true); }
             try {
-                await new Promise(resolve => setTimeout(resolve, 300)); 
+                loadingSkeleton.classList.remove('hidden');
                 const response = await fetch(url);
                 if (!response.ok) { 
                     const errorText = await response.text();
                     throw new Error(`API Error ${response.status}: ${errorText || response.statusText}`); 
                 }
                 const data = await response.json();
-                
-                const validatedData = {
-                    grandTotal: (data && typeof data.grandTotal === 'number') ? data.grandTotal : 0,
-                    accounts: (data && Array.isArray(data.accounts)) ? data.accounts : [],
-                    query: (data && data.query && typeof data.query.start === 'string') ? data.query : 
-                           { start: 'N/A', end: 'N/A', granularity: 'N/A' }
-                };
-
-                if (data && data.error) { 
-                     throw new Error(`API returned an error: ${data.message || data.error}`);
-                }
-                renderDashboard(validatedData);
+                renderDashboard(data);
             } catch (error) {
                 console.error('Failed to load dashboard data:', error);
                 errorMessageDiv.innerHTML = `<p class="font-bold">Could not load dashboard data.</p><p class="text-sm">${error.message}</p>`;
@@ -472,35 +838,61 @@
             }
         };
         
-        monthPicker.addEventListener('change', () => {
-            const monthValue = monthPicker.value;
-            if (!monthValue) { return; } 
-            const [year, month] = monthValue.split('-').map(Number);
-            const startDate = new Date(Date.UTC(year, month - 1, 1));
-            const endDate = new Date(Date.UTC(year, month, 1)); 
-            const startStr = startDate.toISOString().split('T')[0];
-            const endStr = endDate.toISOString().split('T')[0];
-            let granularity = 'MONTHLY';
-            const today = new Date();
-            const firstDayOfSelectedMonthUTC = Date.UTC(year, month - 1, 1);
-            const firstDayOfCurrentMonthUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1);
-            if (firstDayOfSelectedMonthUTC >= firstDayOfCurrentMonthUTC) {
-                granularity = 'DAILY';
-            }
-            const url = `${API_BASE_URL}?start=${startStr}&end=${endStr}&granularity=${granularity}`;
-            fetchCostData(url);
-        });
-        
-        const loadInitialData = () => fetchCostData(API_BASE_URL, true);
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('billingLink').addEventListener('click', (e) => { e.preventDefault(); showBillingView(true); loadInitialData();});
-            document.getElementById('kubecutLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Kubecut', 'kubecutLink'); });
-            document.getElementById('xampingLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Xamping', 'xampingLink'); });
-            
+        const loadInitialData = () => {
             const today = new Date();
             const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            monthPicker.value = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+            const year = lastMonth.getFullYear();
+            const month = lastMonth.getMonth() + 1;
+            const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+            const url = `${API_BASE_URL}?start=${startDate}&end=${endDate}&granularity=MONTHLY`;
+            fetchCostData(url, true);
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('billingLink').addEventListener('click', (e) => { e.preventDefault(); showBillingView(); loadInitialData();});
+            document.getElementById('invoiceLink').addEventListener('click', (e) => { e.preventDefault(); showInvoiceView(); });
+            document.getElementById('kubecutLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Kubecut', 'kubecutLink'); });
+            document.getElementById('xampingLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Xamping', 'xampingLink'); });
+            monthPicker.addEventListener('change', () => {
+                const monthValue = monthPicker.value;
+                if (!monthValue) { return; } 
+                const [year, month] = monthValue.split('-').map(Number);
+                const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+                const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+                const url = `${API_BASE_URL}?start=${startDate}&end=${endDate}&granularity=MONTHLY`;
+                fetchCostData(url);
+            });
+            invoiceMonthPicker.addEventListener('change', () => {
+                fetchAccountsForInvoice();
+                fetchInvoiceData();
+            });
+            accountSelect.addEventListener('change', fetchInvoiceData);
+            document.getElementById('downloadInvoiceBtn').addEventListener('click', () => {
+                const monthValue = invoiceMonthPicker.value;
+                const accountId = accountSelect.value;
+                if (!monthValue || !accountId) {
+                    alert("Please select a month and an account to download the invoice.");
+                    return;
+                }
+                const [year, month] = monthValue.split('-').map(Number);
+                const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+                const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+                const pdfUrl = `/api/invoices/${accountId}/pdf?start=${startDate}&end=${endDate}`;
+                window.open(pdfUrl, '_blank');
+            });
+            document.getElementById('printInvoiceBtn').addEventListener('click', () => {
+                window.print();
+            });
+
+            document.getElementById('applyDiscountBtn').addEventListener('click', applyCustomDiscount);
+
+            const today = new Date();
+            const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const monthValue = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+            
+            monthPicker.value = monthValue;
+            invoiceMonthPicker.value = monthValue;
 
             showBillingView(true); 
             loadInitialData();
