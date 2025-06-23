@@ -787,33 +787,65 @@
         }
 
         async function getOptimizationTips(accountId) {
-            const accountData = currentAccountsData.find(acc => acc.id === accountId);
-            if (!accountData) {
-                console.error("Account data not found for ID:", accountId);
-                geminiSuggestionsContent.innerHTML = '<p class="text-red-600">Error: Account data not found. Please refresh the dashboard.</p>';
-                openGeminiModal();
-                return;
-            }
-            geminiSuggestionsContent.innerHTML = '<div class="flex flex-col items-center justify-center py-4"><i class="fas fa-spinner spinner text-indigo-600 text-2xl mb-2"></i><p class="text-gray-600">Thinking of some bright ideas for you...</p></div>';
-            openGeminiModal();
-            try {
-                const response = await fetch(`/api/costs/${accountId}/optimize-suggestions`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(accountData)
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API Error ${response.status}: ${errorText}`);
-                }
-                const suggestions = await response.text();
-                const formattedSuggestions = suggestions.split('\n').map(line => line.trim().replace(/^\* |- /,'')).filter(line => line.length > 0).map(line => `<li>${line}</li>`).join('');
-                geminiSuggestionsContent.innerHTML = `<ul>${formattedSuggestions}</ul>`;
-            } catch (error) {
-                console.error("Error fetching optimization tips:", error);
-                geminiSuggestionsContent.innerHTML = `<div class="bg-red-50 p-4 rounded-lg"><div class="flex items-center mb-2"><i class="fas fa-exclamation-circle text-red-500 mr-2"></i><h4 class="font-medium text-red-700">Couldn't get suggestions</h4></div><p class="text-sm text-gray-600">${error.message || 'Please try again later.'}</p></div>`;
-            }
+    console.log(`Getting optimization tips for Account ID: ${accountId}`);
+
+    // Find account data in current dataset
+    const accountData = currentAccountsData.find(acc => acc.id === accountId);
+    if (!accountData) {
+        geminiSuggestionsContent.innerHTML = '<p class="text-red-600">Error: Account data not found. Please refresh the dashboard.</p>';
+        openGeminiModal();
+        return;
+    }
+
+    geminiSuggestionsContent.innerHTML = '<div class="flex flex-col items-center justify-center py-4"><i class="fas fa-spinner spinner text-indigo-600 text-2xl mb-2"></i><p class="text-gray-600">Thinking of some bright ideas for you...</p></div>';
+    openGeminiModal();
+
+    try {
+        // Prepare the request data
+        const requestData = {
+            id: accountData.id,
+            name: accountData.name,
+            totalCost: accountData.totalCost,
+            services: accountData.services
+        };
+
+        const response = await fetch(`/api/costs/${accountId}/optimize-suggestions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error ${response.status}: ${errorText}`);
         }
+
+        const suggestions = await response.text();
+        
+        // Format suggestions as bullet points
+        const formattedSuggestions = suggestions.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map(line => `<li class="mb-2 flex items-start"><span class="text-purple-500 mr-2">•</span> ${line}</li>`)
+            .join('');
+        
+        geminiSuggestionsContent.innerHTML = `<ul class="space-y-2">${formattedSuggestions}</ul>`;
+
+    } catch (error) {
+        console.error("Error fetching optimization tips:", error);
+        geminiSuggestionsContent.innerHTML = `
+            <div class="bg-red-50 p-4 rounded-lg">
+                <div class="flex items-center mb-2">
+                    <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+                    <h4 class="font-medium text-red-700">Couldn't get suggestions</h4>
+                </div>
+                <p class="text-sm text-gray-600">${error.message || 'Please try again later.'}</p>
+            </div>
+        `;
+    }
+}
         
         const fetchCostData = async (url, isInitialLoad = false) => {
             if (!isInitialLoad) { showBillingView(true); }

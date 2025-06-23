@@ -1,4 +1,4 @@
-package in.xammer.aws_cost_api.exception;
+package in.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
