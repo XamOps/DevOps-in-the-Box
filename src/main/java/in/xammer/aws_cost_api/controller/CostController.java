@@ -77,8 +77,9 @@ public class CostController {
             }
         } else {
             // Return all invoices (existing behavior)
-            List<InvoiceSummary> invoices = awsCostService.getInvoiceSummaries(start, end);
-            return ResponseEntity.ok(invoices);
+            // Use the correct method or property to get the list of invoices
+            var invoiceResponse = awsCostService.getInvoiceSummaries(start, end);
+            return ResponseEntity.ok(invoiceResponse.invoiceList());
         }
     }
 

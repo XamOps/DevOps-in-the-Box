@@ -13,4 +13,4 @@ public class AwsCostApiApplication {
 		SpringApplication.run(AwsCostApiApplication.class, args);
 	}
 
-}
+} 
