@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XamOps - Upload Invoice</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #eef2f7; }
+        .sidebar { transition: all 0.3s ease; background-color: #1e293b; }
+        .sidebar.collapsed { width: 70px; }
+        .sidebar.collapsed .sidebar-text, .sidebar.collapsed .logo-text { display: none; }
+        .sidebar:not(.collapsed) .tooltip { display: none; }
+        .sidebar.collapsed .tooltip {
+            display: none; position: absolute; left: 100%; top: 50%;
+            transform: translateY(-50%); background: #0f172a; color: white;
+            padding: 6px 12px; border-radius: 4px; white-space: nowrap; margin-left: 12px; z-index: 50;
+        }
+        .sidebar.collapsed nav a:hover .tooltip { display: block; }
+        .sidebar nav a { border-left: 4px solid transparent; transition: background-color 0.2s ease, border-left-color 0.2s ease; }
+        .sidebar nav a.active-link { background-color: #334155; border-left-color: #60a5fa; }
+        .sidebar nav a:hover:not(.active-link) { background-color: #475569; }
+        .submenu-link { padding-left: 3.5rem !important; }
+        .main-content-wrapper { display: flex; flex-direction: column; height: 100vh; }
+        .main-header { flex-shrink: 0; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .main-body-area { flex-grow: 1; padding: 1.5rem; }
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .drop-zone.dragover {
+            background-color: #f0f9ff;
+            border-color: #3b82f6;
+        }
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="flex h-screen overflow-hidden">
+        <div id="sidebar" class="sidebar text-white w-64 flex-shrink-0 flex flex-col no-print">
+            <div class="p-4 flex items-center border-b border-gray-700 h-16">
+                <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center"> <i class="fas fa-cogs"></i> </div>
+                <span class="logo-text ml-3 text-xl font-bold">XamOps</span>
+            </div>
+            <div class="flex-1 overflow-y-auto py-4">
+                <nav>
+                    <a href="billing.html" id="billingLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                        <div class="flex items-center relative"> 
+                            <i class="fas fa-file-invoice w-6 text-center"></i> 
+                            <span class="sidebar-text ml-3">Billing</span> 
+                            <span class="tooltip">Billing</span> 
+                        </div>
+                    </a>
+                    <a href="invoice.html" id="invoiceLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white submenu-link">
+                        <div class="flex items-center relative"> 
+                            <i class="fas fa-receipt w-6 text-center"></i> 
+                            <span class="sidebar-text ml-3">Invoice</span> 
+                            <span class="tooltip">Invoice</span> 
+                        </div>
+                    </a>
+                    <a href="upload_invoice.html" id="uploadInvoiceLink" class="block px-4 py-3 text-white active-link submenu-link">
+                        <div class="flex items-center relative"> 
+                            <i class="fas fa-upload w-6 text-center"></i> 
+                            <span class="sidebar-text ml-3">Upload Invoice</span> 
+                            <span class="tooltip">Upload Invoice</span> 
+                        </div>
+                    </a>
+                    <a href="#" id="kubecutLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                        <div class="flex items-center relative"> <i class="fas fa-box-open w-6 text-center"></i> <span class="sidebar-text ml-3">Kubecut</span> <span class="tooltip">Kubecut</span> </div>
+                    </a>
+                    <a href="#" id="xampingLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                        <div class="flex items-center relative"> <i class="fas fa-rocket w-6 text-center"></i> <span class="sidebar-text ml-3">Xamping</span> <span class="tooltip">Xamping</span> </div>
+                    </a>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-gray-700">
+                <button id="toggleSidebar" class="w-full text-gray-300 hover:text-white flex items-center">
+                    <i class="fas fa-chevron-left"></i> <span class="sidebar-text ml-3">Collapse</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex-1 flex flex-col overflow-hidden main-content-wrapper">
+            <header class="main-header sticky top-0 z-20 no-print">
+                 <div class="px-6 py-4 flex items-center justify-between h-16">
+                     <h1 id="mainHeaderText" class="text-2xl font-semibold text-gray-800">Upload Invoice from Excel</h1>
+                     <div class="flex items-center">
+                         <div class="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">AM</div>
+                         <span class="ml-2 text-gray-700">Aditya Mehta</span>
+                     </div>
+                 </div>
+            </header>
+            
+            <div class="main-body-area">
+                <div class="max-w-4xl mx-auto">
+                    <div class="bg-white rounded-lg shadow-md p-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Generate PDF from Excel</h2>
+                        <p class="text-gray-600 mb-6">Upload an Excel file with your invoice data to generate a PDF in the standard AWS format.</p>
+                        
+                        <div id="dropZone" class="drop-zone rounded-lg p-10 text-center cursor-pointer">
+                            <input type="file" id="fileInput" class="hidden" accept=".xlsx, .xls">
+                            <div class="flex flex-col items-center">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                                <p class="text-gray-700 font-semibold">Drag & drop your Excel file here</p>
+                                <p class="text-gray-500 text-sm mt-1">or click to select a file</p>
+                                <p id="fileName" class="text-sm text-indigo-600 mt-4"></p>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 text-center">
+                            <button id="generateBtn" class="w-full sm:w-auto bg-primary text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" disabled>
+                                <span id="btnText">Upload & Generate PDF</span>
+                                <i id="btnSpinner" class="fas fa-spinner spinner hidden ml-2"></i>
+                            </button>
+                        </div>
+                        
+                        <div id="statusMessage" class="mt-6 text-center"></div>
+                    </div>
+
+                    <div class="mt-6 bg-blue-50 border-l-4 border-blue-400 text-blue-700 p-4 rounded-md">
+                        <div class="flex">
+                            <div class="py-1"><i class="fas fa-info-circle mr-3"></i></div>
+                            <div>
+                                <p class="font-bold">Excel File Format</p>
+                                <p class="text-sm">Please ensure your Excel file has the following columns in the first sheet: <code class="bg-blue-100 p-1 rounded text-xs">Service</code>, <code class="bg-blue-100 p-1 rounded text-xs">Description</code>, <code class="bg-blue-100 p-1 rounded text-xs">Region</code>, <code class="bg-blue-100 p-1 rounded text-xs">UsageQuantity</code>, <code class="bg-blue-100 p-1 rounded text-xs">Amount</code>.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileNameDisplay = document.getElementById('fileName');
+        const generateBtn = document.getElementById('generateBtn');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const statusMessage = document.getElementById('statusMessage');
+        let selectedFile = null;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }, false);
+
+        function handleFile(file) {
+            const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+            if (!validTypes.includes(file.type)) {
+                showStatus('Invalid file type. Please upload an Excel file (.xlsx, .xls).', 'red');
+                return;
+            }
+            selectedFile = file;
+            fileNameDisplay.textContent = file.name;
+            generateBtn.disabled = false;
+            statusMessage.innerHTML = '';
+        }
+
+        generateBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                showStatus('Please select a file first.', 'red');
+                return;
+            }
+
+            setLoading(true);
+            showStatus('Uploading and processing your file...', 'blue');
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/api/upload-invoice', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    showStatus('Successfully generated! Your download will begin shortly.', 'green');
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    const filename = response.headers.get('Content-Disposition').split('filename=')[1].replace(/"/g, '');
+                    a.download = filename || 'invoice.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `Server responded with status: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+                showStatus(`Error: ${error.message}`, 'red');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function setLoading(isLoading) {
+            generateBtn.disabled = isLoading;
+            btnText.classList.toggle('hidden', isLoading);
+            btnSpinner.classList.toggle('hidden', !isLoading);
+        }
+
+        function showStatus(message, color) {
+            statusMessage.innerHTML = `<p class="text-${color}-600">${message}</p>`;
+        }
+    </script>
+</body>
+</html>

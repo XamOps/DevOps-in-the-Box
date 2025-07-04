@@ -133,12 +133,11 @@ public class AwsPdfInvoiceGenerator {
     }
     
     private void createBillingInfoTable(Document document, AwsInvoice invoice) throws DocumentException {
-        PdfPTable table = new PdfPTable(3);
+        PdfPTable table = new PdfPTable(2);
         table.setWidthPercentage(100);
-        addHeaderRow(table, List.of("Billing period", "Account ID", "Date printed"));
+        addHeaderRow(table, List.of("Billing period", "Account ID"));
         table.addCell(createBorderlessCell(invoice.billingPeriod(), NORMAL_FONT, Element.ALIGN_LEFT));
         table.addCell(createBorderlessCell(invoice.payerAccountId(), NORMAL_FONT, Element.ALIGN_LEFT));
-        table.addCell(createBorderlessCell(invoice.datePrinted(), NORMAL_FONT, Element.ALIGN_LEFT));
         document.add(table);
     }
 

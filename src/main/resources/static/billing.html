@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XamOps - AWS Billing & Invoices</title>
+    <title>XamOps - Billing Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -55,13 +55,17 @@
             flex-grow: 1; 
             display: flex; 
             flex-direction: column; 
-            overflow: hidden; 
             padding: 1.5rem; 
             position: relative;
-            height: calc(100vh - 4rem); /* Adjust based on header height */
+            height: calc(100vh - 4rem);
+        }
+        #billingDashboardSection {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
         .summary-cards-fixed { flex-shrink: 0; margin-bottom: 1.5rem; }
-        .account-details-scrollable { flex-grow: 1; overflow-y: auto; min-height: 300px; }
+        .account-details-scrollable { flex-grow: 1; overflow-y: auto; min-height: 0; }
 
         /* Card Styles */
         .summary-card { border-left-width: 5px; transition: all 0.3s ease; background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -99,63 +103,6 @@
         .modal-content ul { list-style-type: none; padding-left: 0; }
         .modal-content li { margin-bottom: 0.75rem; padding-left: 1.25rem; position: relative; line-height: 1.6; }
         .modal-content li::before { content: "✨"; position: absolute; left: 0; color: #8b5cf6; }
-        
-        /* Invoice Styles */
-        .invoice-header { background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%); color: white; }
-        .invoice-row { border-bottom: 1px dashed #e5e7eb; }
-        .discount-badge { background-color: #dcfce7; color: #16a34a; }
-        .invoice-total-row { border-top: 2px solid #1e293b; font-weight: 600; }
-        .payable-row { background-color: #fef2f2; color: #b91c1c; font-weight: 700; }
-        .invoice-card { max-width: 800px; margin: 0 auto; max-height: 80vh; overflow-y: auto; }
-
-        #invoiceSection { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-        .invoice-scroll-container { flex: 1; overflow-y: auto; min-height: 0; }
-        
-        .spinner { animation: spin 1s linear infinite; }
-        @keyframes spin { 
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .account-select-container { position: relative; min-width: 250px; }
-        .account-select-container::after {
-            content: "▼"; position: absolute; right: 12px; top: 50%;
-            transform: translateY(-50%); color: #6b7280; pointer-events: none;
-        }
-        
-        #billingDashboardSection #invoiceFilters {
-            display: none;
-        }
-        
-        @media print {
-            .invoice-card { max-height: none; overflow: visible; box-shadow: none !important; border: none !important; }
-            .main-header, .sidebar, footer, #filterAndCardsSection, .no-print, #invoiceFilters { display: none !important; }
-            body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
-        }
-
-        @media (max-width: 768px) {
-            #invoiceFilters .flex-wrap {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            #invoiceFilters .flex-wrap > div:first-child {
-                margin-bottom: 1rem;
-            }
-            #invoiceFilters .flex-wrap > div:last-child {
-                width: 100%;
-                flex-direction: column;
-                align-items: stretch;
-            }
-            #invoiceFilters .flex-wrap > div:last-child > div {
-                margin-bottom: 1rem;
-            }
-             #invoiceFilters .flex-wrap > div:last-child > div:last-child {
-                margin-bottom: 0;
-            }
-            .account-select-container {
-                width: 100%;
-            }
-        }
     </style>
 </head>
 <body>
@@ -167,18 +114,25 @@
             </div>
             <div class="flex-1 overflow-y-auto py-4">
                 <nav>
-                    <a href="#" id="billingLink" class="block px-4 py-3 text-white active-link">
+                    <a href="billing.html" id="billingLink" class="block px-4 py-3 text-white active-link">
                         <div class="flex items-center relative"> 
                             <i class="fas fa-file-invoice w-6 text-center"></i> 
                             <span class="sidebar-text ml-3">Billing</span> 
                             <span class="tooltip">Billing</span> 
                         </div>
                     </a>
-                    <a href="#" id="invoiceLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white submenu-link">
+                    <a href="invoice.html" id="invoiceLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white submenu-link">
                         <div class="flex items-center relative"> 
                             <i class="fas fa-receipt w-6 text-center"></i> 
                             <span class="sidebar-text ml-3">Invoice</span> 
                             <span class="tooltip">Invoice</span> 
+                        </div>
+                    </a>
+                    <a href="upload_invoice.html" id="uploadInvoiceLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white submenu-link">
+                        <div class="flex items-center relative"> 
+                            <i class="fas fa-upload w-6 text-center"></i> 
+                            <span class="sidebar-text ml-3">Upload Invoice</span> 
+                            <span class="tooltip">Upload Invoice</span> 
                         </div>
                     </a>
                     <a href="#" id="kubecutLink" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
@@ -254,44 +208,6 @@
                     </div>
                 </div>
                 
-                <div id="invoiceSection" class="hidden flex flex-col h-full">
-                    <div id="invoiceFilters" class="no-print">
-                        <div class="flex flex-wrap justify-between items-center mb-6">
-                            <div>
-                                <h2 class="text-xl font-semibold text-gray-800">Monthly Invoice</h2>
-                                <p class="text-gray-600 text-sm">Your AWS usage costs with Xammer discounts</p>
-                            </div>
-                            <div class="flex items-center space-x-4 mt-2 sm:mt-0">
-                                <div>
-                                    <label for="invoice-month-picker" class="block text-sm font-medium text-gray-700 mb-1">Month:</label>
-                                    <input type="month" id="invoice-month-picker" class="form-input px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                                </div>
-                                <div class="account-select-container">
-                                    <label for="account-select" class="block text-sm font-medium text-gray-700 mb-1">Account:</label>
-                                    <select id="account-select" class="w-full form-select px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm bg-white">
-                                        <option value="">Select an account</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="flex-1 overflow-y-auto min-h-0">
-                        <div id="invoiceLoading" class="hidden">
-                            <div class="flex flex-col items-center justify-center py-12">
-                                <i class="fas fa-spinner spinner text-indigo-600 text-3xl mb-4"></i>
-                                <p class="text-gray-600">Generating your invoice...</p>
-                            </div>
-                        </div>
-                        
-                        <div id="invoiceError" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-6"></div>
-                        
-                        <div id="invoiceContent" class="hidden bg-white rounded-lg shadow overflow-hidden invoice-card max-h-[80vh] overflow-y-auto">
-                            <!-- This is where the new invoice format will be rendered -->
-                        </div>
-                    </div>
-                </div>
-                
                 <div id="comingSoonMessage" class="hidden p-6 text-center text-2xl text-gray-700"></div>
                 
                 <footer class="text-xs text-gray-500 text-right py-3 mt-auto flex-shrink-0 no-print"> 
@@ -318,7 +234,6 @@
         const sidebar = document.getElementById('sidebar');
         const toggleSidebarBtn = document.getElementById('toggleSidebar');
         const mainDashboardContent = document.getElementById('mainDashboardContent');
-        const filterAndCardsSection = document.getElementById('filterAndCardsSection');
         const summaryCardsContainer = document.getElementById('summaryCardsContainer');
         const comingSoonMessage = document.getElementById('comingSoonMessage');
         const noDataMessage = document.getElementById('noDataMessage');
@@ -331,15 +246,6 @@
         const API_BASE_URL = '/api/costs'; 
         const INVOICE_API_URL = '/api/invoices'; 
 
-        // Invoice elements
-        const billingDashboardSection = document.getElementById('billingDashboardSection');
-        const invoiceSection = document.getElementById('invoiceSection');
-        const invoiceMonthPicker = document.getElementById('invoice-month-picker');
-        const accountSelect = document.getElementById('account-select');
-        const invoiceLoading = document.getElementById('invoiceLoading');
-        const invoiceError = document.getElementById('invoiceError');
-        const invoiceContent = document.getElementById('invoiceContent');
-        
         // Gemini modal elements
         const geminiModalOverlay = document.getElementById('geminiModalOverlay');
         const geminiSuggestionsContent = document.getElementById('geminiSuggestionsContent');
@@ -370,57 +276,6 @@
             rowElement.classList.toggle('expanded');
         }
 
-        function updateActiveSidebarLink(targetId) {
-            document.querySelectorAll('#sidebar nav a').forEach(link => link.classList.remove('active-link'));
-            const activeLink = document.getElementById(targetId);
-            if (activeLink) activeLink.classList.add('active-link');
-        }
-        
-        function showBillingView(isLoading = false) {
-            mainHeaderText.textContent = 'Billing Dashboard';
-            billingDashboardSection.classList.remove('hidden');
-            
-            invoiceSection.classList.add('hidden');
-            document.getElementById('invoiceFilters')?.classList.add('hidden');
-            
-            comingSoonMessage.classList.add('hidden');
-            errorMessageDiv.classList.add('hidden');
-            noDataMessage.classList.add('hidden');
-            updateActiveSidebarLink('billingLink');
-
-            if (isLoading) {
-                loadingSkeleton.classList.remove('hidden');
-                summaryCardsContainer.classList.add('hidden');
-                mainDashboardContent.classList.add('hidden');
-            } else {
-                loadingSkeleton.classList.add('hidden');
-            }
-        }
-        
-        function showInvoiceView() {
-            mainHeaderText.textContent = 'Invoice Details';
-            billingDashboardSection.classList.add('hidden');
-            
-            invoiceSection.classList.remove('hidden');
-            document.getElementById('invoiceFilters')?.classList.remove('hidden');
-            
-            comingSoonMessage.classList.add('hidden');
-            errorMessageDiv.classList.add('hidden');
-            noDataMessage.classList.add('hidden');
-            updateActiveSidebarLink('invoiceLink');
-            
-            fetchAccountsForInvoice();
-        }
-
-        function showComingSoon(featureName, linkId) {
-            mainHeaderText.textContent = featureName;
-            billingDashboardSection.classList.add('hidden');
-            invoiceSection.classList.add('hidden');
-            comingSoonMessage.textContent = `${featureName} - Coming Soon!`;
-            comingSoonMessage.classList.remove('hidden');
-            updateActiveSidebarLink(linkId);
-        }
-        
         closeGeminiModalBtn.addEventListener('click', closeGeminiModal);
         geminiModalOverlay.addEventListener('click', (e) => { 
             if (e.target === geminiModalOverlay) closeGeminiModal(); 
@@ -512,210 +367,6 @@
             }
         };
         
-        // --- Account Selection Functions ---
-        function populateAccountDropdown(accounts) {
-            accountSelect.innerHTML = '<option value="">Select an account</option>';
-            if (!accounts) return;
-            accounts.forEach(account => {
-                const option = document.createElement('option');
-                option.value = account.id;
-                option.textContent = `${account.name} (${account.id})`;
-                accountSelect.appendChild(option);
-            });
-        }
-        
-        async function fetchAccountsForInvoice() {
-            const monthValue = invoiceMonthPicker.value;
-            if (!monthValue) return;
-            const [year, month] = monthValue.split('-').map(Number);
-            const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-            const tempDate = new Date(year, month, 1);
-            const endDate = new Date(tempDate.getFullYear(), tempDate.getMonth(), 0).toISOString().split('T')[0];
-            const url = `${API_BASE_URL}?start=${startDate}&end=${endDate}&granularity=MONTHLY`;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Failed to fetch accounts');
-                const data = await response.json();
-                populateAccountDropdown(data.accounts);
-            } catch (error) {
-                console.error('Failed to fetch accounts:', error);
-            }
-        }
-        
-        // --- Invoice Functions ---
-        function renderInvoice(invoice) {
-            if (!invoice) {
-                invoiceContent.innerHTML = '<div class="p-6 text-center text-gray-500">Please select an account to view the invoice.</div>';
-                invoiceContent.classList.remove('hidden');
-                return;
-            }
-
-            invoiceContent.innerHTML = `
-                <div class="p-6">
-                    <div class="flex justify-between items-end mb-4">
-                        <h2 class="text-2xl font-bold" style="color: #ff9900;">aws</h2>
-                        <h3 class="text-xl font-bold text-gray-800">AWS bill summary</h3>
-                    </div>
-                    
-                    <table class="w-full text-sm mb-6">
-                        <thead>
-                            <tr class="border-b">
-                                <th class="text-left font-semibold pb-2">Service provider</th>
-                                <th class="text-left font-semibold pb-2">Total in USD</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="py-2">${invoice.serviceProvider}</td>
-                                <td class="py-2">${formatCurrency(invoice.totalInUSD)}</td>
-                            </tr>
-                            <tr class="border-t">
-                                <td class="py-2 font-bold">Grand total:</td>
-                                <td class="py-2 font-bold">${formatCurrency(invoice.totalInUSD)}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    
-                    <p class="text-sm mb-6">Payable by Account ID: ${invoice.payerAccountId}</p>
-                    
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Highest cost by service provider</h3>
-                    <p class="text-sm text-gray-600 mb-4">${invoice.serviceProvider}</p>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-                        <div>
-                            <p class="font-semibold">Highest service spend</p>
-                            <div class="flex justify-between text-sm"><p>Service name</p><p>${invoice.highestServiceSpendName}</p></div>
-                            <div class="flex justify-between text-sm"><p>Highest service spend</p><p>${formatCurrency(invoice.highestServiceSpendAmount)}</p></div>
-                            <div class="flex justify-between text-sm"><p>Trend compared to prior month</p><p>${invoice.trendComparedToPriorMonth}</p></div>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Highest AWS Region spend</p>
-                            <div class="flex justify-between text-sm"><p>Region name</p><p>${invoice.highestRegionSpendName}</p></div>
-                            <div class="flex justify-between text-sm"><p>Highest AWS Region spend</p><p>${formatCurrency(invoice.highestRegionSpendAmount)}</p></div>
-                            <div class="flex justify-between text-sm"><p>Trend compared to prior month</p><p>${invoice.regionTrendComparedToPriorMonth}</p></div>
-                        </div>
-                    </div>
-
-                    <table class="w-full text-sm mb-8">
-                        <thead>
-                            <tr class="border-b">
-                                <th class="text-left font-semibold pb-2">Billing period</th>
-                                <th class="text-left font-semibold pb-2">Account ID</th>
-                                <th class="text-left font-semibold pb-2">Date printed</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="py-2">${invoice.billingPeriod}</td>
-                                <td class="py-2">${invoice.payerAccountId}</td>
-                                <td class="py-2">${invoice.datePrinted}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Charges by service (${invoice.chargesByService.length})</h3>
-                     <p class="text-sm text-gray-600 mb-4">${invoice.serviceProvider}</p>
-                    <div id="invoiceItemsContainer"></div>
-                     <div class="flex justify-end mt-4">
-                         <div class="w-full md:w-1/2">
-                             <div class="invoice-row flex justify-between py-2">
-                                 <span class="font-medium">Total pre-tax</span>
-                                 <span id="invoiceTotalPreTax" class="font-bold">${formatCurrency(invoice.totalPreTax)}</span>
-                             </div>
-                             <div class="invoice-row flex justify-between py-2">
-                                 <span class="font-medium">Total tax</span>
-                                 <span id="invoiceTotalTax" class="font-bold">${formatCurrency(invoice.totalTax)}</span>
-                             </div>
-                             <div class="invoice-total-row flex justify-between py-3 mt-2">
-                                 <span class="font-medium text-gray-800">Total invoiced charges</span>
-                                 <span id="invoiceTotalInvoiced" class="font-bold">${formatCurrency(invoice.totalInvoicedCharges)}</span>
-                             </div>
-                         </div>
-                     </div>
-                </div>
-                <div class="px-6 py-4 bg-gray-50 flex justify-end items-center no-print">
-                    <button id="downloadAwsInvoiceBtn" class="px-4 py-2 bg-secondary text-white rounded-md hover:bg-purple-700 flex items-center">
-                        <i class="fab fa-aws mr-2"></i> Download PDF
-                    </button>
-                </div>
-            `;
-
-            const invoiceItemsContainer = document.getElementById('invoiceItemsContainer');
-            invoiceItemsContainer.innerHTML = '';
-            if (invoice.chargesByService && Array.isArray(invoice.chargesByService)) {
-                
-                const table = document.createElement('table');
-                table.className = 'w-full text-sm';
-                const thead = document.createElement('thead');
-                thead.innerHTML = `
-                    <tr class="border-b">
-                        <th class="text-left font-semibold pb-2">Description</th>
-                        <th class="text-right font-semibold pb-2">Usage Quantity</th>
-                        <th class="text-right font-semibold pb-2">Amount in USD</th>
-                    </tr>
-                `;
-                table.appendChild(thead);
-                const tbody = document.createElement('tbody');
-
-                invoice.chargesByService.forEach(charge => {
-                    const serviceHeaderRow = tbody.insertRow();
-                    serviceHeaderRow.className = 'font-bold';
-                    serviceHeaderRow.innerHTML = `<td colspan="2" class="pt-4 pb-1">${charge.serviceName}</td><td class="text-right pt-4 pb-1">${formatCurrency(charge.totalAmount)}</td>`;
-                    
-                    let lastRegion = "";
-                    charge.serviceDetails.forEach(detail => {
-                        if (detail.region !== lastRegion) {
-                            const regionRow = tbody.insertRow();
-                            regionRow.innerHTML = `<td colspan="3" class="pt-2 pb-1 text-xs text-gray-500">${detail.region}</td>`;
-                            lastRegion = detail.region;
-                        }
-                        const detailRow = tbody.insertRow();
-                        detailRow.className = 'text-xs';
-                        detailRow.innerHTML = `
-                            <td class="py-1 pl-2">${detail.description}</td>
-                            <td class="text-right py-1">${detail.usageQuantity}</td>
-                            <td class="text-right py-1">${formatCurrency(detail.amount)}</td>
-                        `;
-                    });
-                });
-                table.appendChild(tbody);
-                invoiceItemsContainer.appendChild(table);
-            }
-        }
-        
-        async function fetchInvoiceData() {
-            const monthValue = invoiceMonthPicker.value;
-            const accountId = accountSelect.value;
-            if (!monthValue || !accountId) {
-                invoiceContent.classList.add('hidden');
-                return;
-            }
-            invoiceLoading.classList.remove('hidden');
-            invoiceContent.classList.add('hidden');
-            invoiceError.classList.add('hidden');
-            try {
-                const [year, month] = monthValue.split('-').map(Number);
-                const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-                const tempDate = new Date(year, month, 1);
-                const endDate = new Date(tempDate.getFullYear(), tempDate.getMonth(), 0).toISOString().split('T')[0];
-                const response = await fetch(`${INVOICE_API_URL}/${accountId}/aws-invoice-data?start=${startDate}&end=${endDate}`);
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API Error ${response.status}: ${errorText || response.statusText}`);
-                }
-                const data = await response.json();
-                renderInvoice(data);
-                invoiceContent.classList.remove('hidden');
-
-            } catch (error) {
-                console.error('Failed to load invoice:', error);
-                invoiceError.textContent = `Error loading invoice: ${error.message || 'Please try again later.'}`;
-                invoiceError.classList.remove('hidden');
-            } finally {
-                invoiceLoading.classList.add('hidden');
-            }
-        }
-
         async function getOptimizationTips(accountId) {
             console.log(`Getting optimization tips for Account ID: ${accountId}`);
 
@@ -737,7 +388,7 @@
                     services: accountData.services
                 };
 
-                const response = await fetch(`/api/costs/${accountId}/optimize-suggestions`, {
+                const response = await fetch(`${INVOICE_API_URL}/${accountId}/optimize-suggestions`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -775,9 +426,11 @@
 }
         
         const fetchCostData = async (url, isInitialLoad = false) => {
-            if (!isInitialLoad) { showBillingView(true); }
-            try {
+            if (!isInitialLoad) { 
                 loadingSkeleton.classList.remove('hidden');
+                mainDashboardContent.classList.add('hidden');
+            }
+            try {
                 const response = await fetch(url);
                 if (!response.ok) { 
                     const errorText = await response.text();
@@ -805,14 +458,14 @@
             const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
             const endDate = new Date(year, month, 0).toISOString().split('T')[0];
             const url = `${API_BASE_URL}?start=${startDate}&end=${endDate}&granularity=MONTHLY`;
+            monthPicker.value = `${year}-${String(month).padStart(2, '0')}`;
             fetchCostData(url, true);
         };
 
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('billingLink').addEventListener('click', (e) => { e.preventDefault(); showBillingView(); loadInitialData();});
-            document.getElementById('invoiceLink').addEventListener('click', (e) => { e.preventDefault(); showInvoiceView(); });
-            document.getElementById('kubecutLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Kubecut', 'kubecutLink'); });
-            document.getElementById('xampingLink').addEventListener('click', (e) => { e.preventDefault(); showComingSoon('Xamping', 'xampingLink'); });
+            document.getElementById('kubecutLink').addEventListener('click', (e) => { e.preventDefault(); alert('Kubecut is coming soon!'); });
+            document.getElementById('xampingLink').addEventListener('click', (e) => { e.preventDefault(); alert('Xamping is coming soon!'); });
+
             monthPicker.addEventListener('change', () => {
                 const monthValue = monthPicker.value;
                 if (!monthValue) { return; } 
@@ -822,37 +475,7 @@
                 const url = `${API_BASE_URL}?start=${startDate}&end=${endDate}&granularity=MONTHLY`;
                 fetchCostData(url);
             });
-            invoiceMonthPicker.addEventListener('change', () => {
-                fetchAccountsForInvoice();
-                fetchInvoiceData();
-            });
-            accountSelect.addEventListener('change', fetchInvoiceData);
             
-            invoiceContent.addEventListener('click', function(event) {
-                const downloadBtn = event.target.closest('#downloadAwsInvoiceBtn');
-                if (downloadBtn) {
-                    const monthValue = invoiceMonthPicker.value;
-                    const accountId = accountSelect.value;
-                    if (!monthValue || !accountId) {
-                        alert("Please select a month and an account to download the invoice.");
-                        return;
-                    }
-                    const [year, month] = monthValue.split('-').map(Number);
-                    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-                    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-                    const pdfUrl = `/api/invoices/${accountId}/aws-style-pdf?start=${startDate}&end=${endDate}`;
-                    window.open(pdfUrl, '_blank');
-                }
-            });
-
-            const today = new Date();
-            const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            const monthValue = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
-            
-            monthPicker.value = monthValue;
-            invoiceMonthPicker.value = monthValue;
-
-            showBillingView(true); 
             loadInitialData();
         });
     </script>
