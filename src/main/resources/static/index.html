@@ -828,18 +828,21 @@
             });
             accountSelect.addEventListener('change', fetchInvoiceData);
             
-            document.getElementById('downloadAwsInvoiceBtn').addEventListener('click', () => {
-                const monthValue = invoiceMonthPicker.value;
-                const accountId = accountSelect.value;
-                if (!monthValue || !accountId) {
-                    alert("Please select a month and an account to download the invoice.");
-                    return;
+            invoiceContent.addEventListener('click', function(event) {
+                const downloadBtn = event.target.closest('#downloadAwsInvoiceBtn');
+                if (downloadBtn) {
+                    const monthValue = invoiceMonthPicker.value;
+                    const accountId = accountSelect.value;
+                    if (!monthValue || !accountId) {
+                        alert("Please select a month and an account to download the invoice.");
+                        return;
+                    }
+                    const [year, month] = monthValue.split('-').map(Number);
+                    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+                    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+                    const pdfUrl = `/api/invoices/${accountId}/aws-style-pdf?start=${startDate}&end=${endDate}`;
+                    window.open(pdfUrl, '_blank');
                 }
-                const [year, month] = monthValue.split('-').map(Number);
-                const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-                const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-                const pdfUrl = `/api/invoices/${accountId}/aws-style-pdf?start=${startDate}&end=${endDate}`;
-                window.open(pdfUrl, '_blank');
             });
 
             const today = new Date();
